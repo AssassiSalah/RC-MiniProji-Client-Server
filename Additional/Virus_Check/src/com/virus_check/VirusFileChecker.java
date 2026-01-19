@@ -300,12 +300,53 @@ public class VirusFileChecker {
         }
     }
 
-    // Scan file with Windows Defender
     public void scanFileWithDefender(String filePath) throws IOException, InterruptedException {
-        String command = "powershell.exe Start-MpScan -ScanType QuickScan -File '" + filePath + "'";
+        // Path to the Windows Defender executable (MpCmdRun.exe)
+        String defenderPath = "C:\\Program Files\\Windows Defender\\MpCmdRun.exe";
+
+        // Ensure the defender executable exists
+        File defenderExe = new File(defenderPath);
+        if (!defenderExe.exists()) {
+            System.out.println("Windows Defender is not installed or executable not found.");
+            return;
+        }
+
+        // Command to scan with Windows Defender at a specific directory
+        // Use the 'Scan' argument to perform a custom scan on the specified directory
+        String command = "\"" + defenderPath + "\" -Scan -ScanType 3 -File \"" + filePath + "\"";
+
+        // Execute the command to start the scan
         Process process = Runtime.getRuntime().exec(command);
         process.waitFor();
-        System.out.println("Windows Defender scan completed for: " + filePath);
+
+        // Read and print the output of the process
+        BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+        String line;
+        boolean detectedThreats = false;
+
+        while ((line = reader.readLine()) != null) {
+            System.out.println("Windows Defender: " + line);
+
+            // Check for any threats detected in the output
+            if (line.contains("Threat")) {
+                detectedThreats = true;
+                allFilesSafe = false;
+                System.out.println("WARNING: Potential threat detected in file: " + filePath);
+
+                // Parsing threat level from the output
+                if (line.contains("Severe")) {
+                    System.out.println("High-severity threat detected!");
+                } else if (line.contains("Moderate")) {
+                    System.out.println("Moderate-severity threat detected.");
+                } else {
+                    System.out.println("Low-severity threat detected.");
+                }
+            }
+        }
+
+        if (!detectedThreats) {
+            System.out.println("No threats detected in file: " + filePath);
+        }
     }
 
     // Simple Progress Bar class
