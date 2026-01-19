@@ -1,63 +1,58 @@
 package rc_miniproj;
+
 import java.io.*;
 import java.net.Socket;
 import java.util.Scanner;
 
 public class AuthenticatedFileClient {
-    private static final String SERVER_ADDRESS = "localhost";
-    private static final int SERVER_PORT = 5015;
-    
+    private String serverAddress;
+    private int serverPort;
     private DataInputStream dataInputStream;
     private DataOutputStream dataOutputStream;
     private Scanner scanner;
 
-    AuthenticatedFileClient() {
-    	scanner = new Scanner(System.in);
+    public AuthenticatedFileClient(String serverAddress, int serverPort) {
+        this.serverAddress = serverAddress;
+        this.serverPort = serverPort;
+        this.scanner = new Scanner(System.in);
     }
-    
-    public void start() {
-        try (Socket socket = new Socket(SERVER_ADDRESS, SERVER_PORT)) {
-        	
-        	dataInputStream = new DataInputStream(socket.getInputStream());
-        	dataOutputStream = new DataOutputStream(socket.getOutputStream());
-        	
-            // Call authenticate method
-            if (!authenticate()) {
-                System.out.println("Client Disconnecting.");
-                return;
-            }
 
-            // Process Commands
+    public void start() {
+        try (Socket socket = new Socket(serverAddress, serverPort)) {
+            System.out.println("Connected to the server at " + serverAddress + ":" + serverPort);
+
+            dataInputStream = new DataInputStream(socket.getInputStream());
+            dataOutputStream = new DataOutputStream(socket.getOutputStream());
+
+            if (!authenticate()) return;
+
             while (true) {
-            	System.out.println();
-                System.out.print("Enter command (UPLOAD, LIST_FILES_USER, DOWNLOAD, EXIT): ");
-                String command = scanner.nextLine();
-            	System.out.println();
+                System.out.print("\nEnter command (UPLOAD, LIST_FILES_USERS, DOWNLOAD, EXIT): ");
+                String command = scanner.nextLine().trim();
                 dataOutputStream.writeUTF(command);
 
-                switch (command) {
+                switch (command.toUpperCase()) {
                     case "UPLOAD":
-                    	System.out.print("Enter file path to upload: ");
-                        String filePath = scanner.nextLine();
-                        uploadFile(filePath);
+                        uploadFile();
                         break;
-                    case "LIST_FILES_USER":
-                    	List_Files_Server();
+                    case "LIST_FILES_USERS":
+                        listFiles();
                         break;
                     case "DOWNLOAD":
-                    	File downloadDir = new File("downloads");
-                        if (!downloadDir.exists()) 
-                        	downloadDir.mkdirs();
-                        
-                        System.out.print("Enter file name to download: ");
-                        String fileName = scanner.nextLine();
-                        downloadFile(fileName, "Downloads");
+                        downloadFile();
                         break;
                     case "EXIT":
-                        exitConnection();
+                        System.out.println("Goodbye!");
                         return;
                     default:
-                        System.out.println("Unknown command.");
+                        System.out.println("Invalid command.");
+                }
+
+                System.out.print("\nWould you like to perform another action? (y/n): ");
+                String continueResponse = scanner.nextLine().trim();
+                if (!continueResponse.equalsIgnoreCase("y")) {
+                    System.out.println("Goodbye!");
+                    return;
                 }
             }
         } catch (IOException e) {
@@ -65,125 +60,156 @@ public class AuthenticatedFileClient {
         }
     }
 
-	private boolean authenticate() throws IOException {
-            System.out.print("Enter username: ");
-            String username = scanner.nextLine();
-            System.out.print("Enter password: ");
-            String password = scanner.nextLine();
+    private boolean authenticate() throws IOException {
+        System.out.print("Enter username: ");
+        String username = scanner.nextLine();
+        System.out.print("Enter password: ");
+        String password = scanner.nextLine();
 
-            // Send credentials to server
-            dataOutputStream.writeUTF(username);
-            dataOutputStream.writeUTF(password);
+        dataOutputStream.writeUTF(username);
+        dataOutputStream.writeUTF(password);
 
-            // Read response from server
-            String response = dataInputStream.readUTF();
-            System.out.println(response);
-            return response.contains("Successful");
+        String response = dataInputStream.readUTF();
+        if (response.equals("Authentication Failed")) {
+            System.out.println("Authentication failed!");
+            return false;
+        }
+
+        System.out.println(response);
+        return true;
     }
 
-	private void uploadFile(String filePath) throws IOException {
+    private void uploadFile() throws IOException {
+        System.out.print("Enter the file path to upload: ");
+        String filePath = scanner.nextLine();
         File file = new File(filePath);
-        
-        dataOutputStream.writeUTF(file.getName());
-        
-        String serverResponse = dataInputStream.readUTF();
-        System.out.println(serverResponse);
-        if (!serverResponse.contains("Ready")) {
-            //System.out.println("Server not ready to receive the file.");
-        	System.out.println("File Already Exist");
+
+        if (!file.exists()) {
+            System.out.println("File does not exist.");
             return;
         }
-        
-        //COMPLITE before send file check if the is virus or not (another class)
 
-        System.out.println("start to upload ");
+        dataOutputStream.writeUTF(file.getName());
+        dataOutputStream.writeLong(file.length());
+
         try (FileInputStream fileInputStream = new FileInputStream(file)) {
             byte[] buffer = new byte[4096];
             int bytesRead;
-            while ((bytesRead = fileInputStream.read(buffer)) == 4096) {
+            while ((bytesRead = fileInputStream.read(buffer)) != -1) {
                 dataOutputStream.write(buffer, 0, bytesRead);
             }
-            
-            dataOutputStream.write(buffer, 0, bytesRead);
-            dataOutputStream.flush();
-            System.out.println("File uploaded successfully.");
         }
+
+        System.out.println("File uploaded successfully.");
     }
 
-    private void downloadFile(String fileName, String destination) throws IOException {
-        dataOutputStream.writeUTF(fileName);
-
+    private void listFiles() throws IOException {
         String response = dataInputStream.readUTF();
-        System.out.println(response);
-        
-        if (response.contains("Not Found")) {
-            System.out.println("Error: " + response);
+        if ("No users found.".equals(response)) {
+            System.out.println("No users found.");
+        } else {
+            while (!response.equals("END")) {
+                System.out.println(response);
+                response = dataInputStream.readUTF();
+            }
+        }
+    }
+    private void downloadFile() throws IOException {
+        // Step 1: Fetch the list of users and display them with indexing
+        dataOutputStream.writeUTF("LIST_FILES_USERS");
+        String response = dataInputStream.readUTF();
+
+        if ("No users found.".equals(response)) {
+            System.out.println("No users found.");//No users found.
             return;
         }
 
-        File downloadedFile = new File(destination + "/" + fileName);
-
-        try (FileOutputStream fileOut = new FileOutputStream(downloadedFile)) {
-            byte[] buffer = new byte[4096];
-            int bytesRead;
-            
-            System.out.println("Start The Reading");
-            
-            // Read file data until the end of the stream
-            while ((bytesRead = dataInputStream.read(buffer)) == 4096) {
-            	//System.out.println(bytesRead);
-                fileOut.write(buffer, 0, bytesRead);
-            }
-            
-            //System.out.println(bytesRead);
-            fileOut.write(buffer, 0, bytesRead);
-            
-            //System.out.println(response);
-            //fileOut.flush();
-        }
-            /*
-            // Start file reading loop
-            while (true) {
-                // Check if the server has sent the "Transfer Complete" message
-                if (dataInputStream.available() > 0 && dataInputStream.readUTF().equals("Transfer Complete")) {
-                    System.out.println("File downloaded successfully.");
-                    break;
-                }
-                
-                // Continue writing file if data is still being received
-                bytesRead = dataInputStream.read(buffer);
-                if (bytesRead == -1) 
-                	break; // End of file detected
-                
-                fileOut.write(buffer, 0, bytesRead);
-            }
-            
-            while ((bytesRead = dataInputStream.read(buffer)) != -1) {
-                fileOut.write(buffer, 0, bytesRead);
-            }
-        }*/
-        
-        //response = dataInputStream.readUTF();
-        //System.out.println(response);
-        //if(response.contains("Transfer Complete"))
-        	System.out.println("File downloaded successfully.");
-        	System.out.println();
-        //else
-        //	System.out.println("File Not Downloaded, Somthing Wrong.");
-    }
-
-    private void List_Files_Server() throws IOException { 	
-        String response;
-        while (!(response = dataInputStream.readUTF()).equals("END")) {
+        // Display the list of users
+        System.out.println("Available users and their files:");
+        while (!response.equals("END")) {
             System.out.println(response);
+            response = dataInputStream.readUTF();
+        }
+        System.out.println(); // Add a newline for better readability
+
+        // Step 2: Ask the client to select a user by index
+        System.out.print("Select a user by index to view their files: ");
+        int userChoice;
+        try {
+            userChoice = Integer.parseInt(scanner.nextLine().trim());
+        } catch (NumberFormatException e) {
+            System.out.println("Invalid input. Please enter a number.");
+            return;
+        }
+        dataOutputStream.writeInt(userChoice);
+
+        // Step 3: Fetch and display the list of files for the selected user
+        response = dataInputStream.readUTF();
+        if (response.equals("Invalid user choice.")) {
+            System.out.println("Invalid user choice.");
+            return;
+        }
+
+        System.out.println("Files available for download:");
+        while (!response.equals("END")) {
+            System.out.println(response);
+            response = dataInputStream.readUTF();
+        }
+        System.out.println(); // Add a newline for better readability
+
+        // Step 4: Ask the client to select a file by index
+        System.out.print("Enter the file number to download: ");
+        int fileChoice;
+        try {
+            fileChoice = Integer.parseInt(scanner.nextLine().trim());
+        } catch (NumberFormatException e) {
+            System.out.println("Invalid input. Please enter a number.");
+            return;
+        }
+        dataOutputStream.writeInt(fileChoice);
+
+        // Step 5: Start the file download process
+        response = dataInputStream.readUTF();
+        if (response.equals("Invalid file choice.")) {
+            System.out.println("Invalid file choice.");
+            return;
+        } else if (response.equals("Starting file transfer.")) {
+            long totalBytes = dataInputStream.readLong();
+
+            // Prepare the download folder
+            File downloadFolder = new File("downloads");
+            if (!downloadFolder.exists()) {
+                downloadFolder.mkdirs();
+            }
+
+            System.out.println("Starting the file download... Please wait until it's finished.");
+
+            // Receive the file
+            try (FileOutputStream fileOut = new FileOutputStream("downloads/" + dataInputStream.readUTF())) {
+                byte[] buffer = new byte[4096];
+                int bytesRead;
+                long bytesReceived = 0;
+                while ((bytesRead = dataInputStream.read(buffer)) != -1) {
+                    fileOut.write(buffer, 0, bytesRead);
+                    bytesReceived += bytesRead;
+                    int progress = (int) ((bytesReceived * 100) / totalBytes);
+                    System.out.print("\rReceiving file: " + progress + "%");
+                }
+
+                response = dataInputStream.readUTF();
+                if (response.equals("File transfer complete.")) {
+                    System.out.println("\nFile downloaded successfully.");
+                } else {
+                    System.out.println("\nUnexpected response after file transfer: " + response);
+                }
+            }
+        } else {
+            System.out.println("Unexpected response from server: " + response);
         }
     }
-    
-    private static void exitConnection() {
-    	System.out.println();
-    	System.out.println("Client Disconnected Successfuly");
-		// TODO Nothing Here For The Current Time
-		
-	}
 
+
+    public static void main(String[] args) {
+        new AuthenticatedFileClient("127.0.0.1", 5015).start();
+    }
 }

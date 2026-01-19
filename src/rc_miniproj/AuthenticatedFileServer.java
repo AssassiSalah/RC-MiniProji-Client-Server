@@ -1,226 +1,212 @@
 package rc_miniproj;
+
 import java.io.*;
-import java.net.ServerSocket;
-import java.net.Socket;
+import java.net.*;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-/*
- * CHECK used for method that i didn't check they results [Low]
- * COMPLITE used for method that didn't finish [Normal]
- * FIXME used for method have an error [HIGH]
- * HACK used for temporary solution [Normal]
- * REPLACE used for method i must replace [Low] 
- * TODO used for other problem [Normal]
- */
-
 public class AuthenticatedFileServer {
-	
-    private static final int PORT = 5015;
-    
-    // maximum number of concurrent clients the server can handle.
+    private final String ipAddress;
+    private final int port;
     private static final int MAX_CLIENTS = 5;
-        
     private Map<String, String> users;
-    
-    public AuthenticatedFileServer() {
-    	users = new HashMap<>();
-    	getUsers();
-	}
-    
-    // HACK this method work instead of Database (we don't have DB)
-    public void getUsers() {
-        // Sample user credentials
+
+    public AuthenticatedFileServer(String ipAddress, int port) {
+        this.ipAddress = ipAddress;
+        this.port = port;
+        this.users = new HashMap<>();
+        getUsers();
+    }
+
+    private void getUsers() {
         users.put("user1", "pass1");
         users.put("user2", "pass2");
+        users.put("user3", "pass3");
     }
 
     public void start() {
-    	
-    	// created with a fixed-size thread
         ExecutorService executorService = Executors.newFixedThreadPool(MAX_CLIENTS);
 
-        try (ServerSocket serverSocket = new ServerSocket(PORT)) {
-            System.out.println("Server is running on port " + PORT);
+        try {
+            InetAddress bindAddress = InetAddress.getByName(ipAddress);
+            try (ServerSocket serverSocket = new ServerSocket()) {
+                serverSocket.bind(new InetSocketAddress(bindAddress, port));
+                System.out.println("Server is running on IP: " + ipAddress + " Port: " + port);
 
-            while (true) {
-                Socket clientSocket = serverSocket.accept();
-                executorService.submit(() -> handleClient(clientSocket));
+                while (true) {
+                    Socket clientSocket = serverSocket.accept();
+                    executorService.submit(() -> handleClient(clientSocket));
+                }
             }
         } catch (IOException e) {
             e.printStackTrace();
         } finally {
-            System.out.println("Shutdown the Server");
+            System.out.println("Shutting down the server.");
             executorService.shutdown();
         }
     }
 
     private void handleClient(Socket clientSocket) {
         try (DataInputStream dataInputStream = new DataInputStream(clientSocket.getInputStream());
-        	 DataOutputStream dataOutputStream = new DataOutputStream(clientSocket.getOutputStream());)
-        {
-            		
-        	String username = authenticate(dataInputStream);
-        	
+             DataOutputStream dataOutputStream = new DataOutputStream(clientSocket.getOutputStream())) {
+
+            String username = authenticate(dataInputStream);
+            String clientAddress = clientSocket.getInetAddress().toString();
+            System.out.println("Client connected: " + clientAddress + " with username: " + username);
+
             if (username.isEmpty()) {
                 dataOutputStream.writeUTF("Authentication Failed");
-                clientSocket.close();
+                System.out.println("Authentication failed for " + clientAddress);
                 return;
-            }    
+            }
 
-            dataOutputStream.writeUTF("Authentication Successful Welcome : " + username);
-            
-            File serverDir = new File("server_storage");
-            
-            // Create Folder For This User If Is Not Exist
-            if (!serverDir.exists()) 
-            	serverDir.mkdirs();
-            
+            dataOutputStream.writeUTF("Authentication Successful. Welcome: " + username);
+            System.out.println("Authentication successful for " + clientAddress + " (" + username + ")");
+
+            // Create the user's directory for storing files
             File userDir = new File("server_storage/" + username);
-            
-            // Create Folder For This User If Is Not Exist
-            if (!userDir.exists()) 
-            	userDir.mkdirs();
+            if (!userDir.exists()) userDir.mkdirs();
 
-            // Process client commands
             while (true) {
                 String command = dataInputStream.readUTF();
-                System.out.println("client Choose : " + command);
+                System.out.println("Client (" + clientAddress + ") requested command: " + command);
+
                 switch (command) {
                     case "UPLOAD":
-                    	String fileName = dataInputStream.readUTF();
-                        receiveFile(userDir, fileName, dataInputStream, dataOutputStream);
+                        receiveFile(userDir, dataInputStream, dataOutputStream, clientAddress);
                         break;
-                    case "LIST_FILES_USER":
-                        listFiles(userDir, dataOutputStream);
+                    case "LIST_FILES_USERS":
+                        listFiles(dataOutputStream, clientAddress);
                         break;
                     case "DOWNLOAD":
-                    	String requestedFileName = dataInputStream.readUTF();
-                        boolean foundFile = sendFile(userDir, requestedFileName, dataOutputStream);
-                        
-                        if(!foundFile)
-                        	System.out.println("Not Fount In The Server");
-                        	//sendFile(serverDir, requestedFileName, dataOutputStream);
-
+                        sendFile(dataInputStream, dataOutputStream, userDir, clientAddress);
                         break;
                     case "EXIT":
-                    	exit(clientSocket);
+                        System.out.println("Client (" + clientAddress + ") disconnected.");
                         return;
                     default:
-                        dataOutputStream.writeUTF("Unknown command");
+                        dataOutputStream.writeUTF("Invalid command");
                 }
             }
         } catch (IOException e) {
             e.printStackTrace();
-        } finally {
-            try {
-                clientSocket.close();
-                //clientSocket.close();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
         }
     }
 
-	private String authenticate(DataInputStream dataInputStream) throws IOException {
-    	// Authenticate user
+    private String authenticate(DataInputStream dataInputStream) throws IOException {
         String username = dataInputStream.readUTF();
         String password = dataInputStream.readUTF();
-        
-        return users.containsKey(username) && users.get(username).equals(password) ? username : "";
+
+        if (users.containsKey(username) && users.get(username).equals(password)) {
+            return username;
+        }
+        return "";
     }
 
-    private void receiveFile(File userDir, String fileName, DataInputStream dataInputStream, DataOutputStream dataOutputStream) throws IOException {
-
+    private void receiveFile(File userDir, DataInputStream dataInputStream, DataOutputStream dataOutputStream, String clientAddress) throws IOException {
+        String fileName = dataInputStream.readUTF();
+        long fileSize = dataInputStream.readLong();
         File file = new File(userDir, fileName);
-        
-        if (file.exists()) {
-            dataOutputStream.writeUTF("File Exist Already.");
-            return;
-        } else
-        	dataOutputStream.writeUTF("Ready To Resieve.");
-        
-        try (FileOutputStream fileOut = new FileOutputStream(file)) {
+
+        try (FileOutputStream fileOutputStream = new FileOutputStream(file)) {
             byte[] buffer = new byte[4096];
             int bytesRead;
-            while ((bytesRead = dataInputStream.read(buffer)) != -1) {
-                fileOut.write(buffer, 0, bytesRead);
+            long bytesReceived = 0;
+            while (bytesReceived < fileSize && (bytesRead = dataInputStream.read(buffer)) != -1) {
+                fileOutputStream.write(buffer, 0, bytesRead);
+                bytesReceived += bytesRead;
+                System.out.println("Receiving " + fileName + ": " + (bytesReceived * 100 / fileSize) + "%");
             }
-            dataOutputStream.writeUTF("File " + fileName + " uploaded successfully.");
+            dataOutputStream.writeUTF("File upload complete.");
+            System.out.println("File " + fileName + " uploaded by client (" + clientAddress + ")");
         }
     }
 
-    private void listFiles(File userDir, DataOutputStream dataOutputStream) throws IOException {
-    	
-        File[] files = userDir.listFiles();
-        if (files == null || files.length == 0) {
-            dataOutputStream.writeUTF("No files found.");
-        } else {
-        	dataOutputStream.writeUTF("Files:");
-        	for (File file : files) {
-            	dataOutputStream.writeUTF(file.getName());
-        	}
+    private void listFiles(DataOutputStream dataOutputStream, String clientAddress) throws IOException {
+        // Get all user directories in the server_storage folder
+        File serverStorageDir = new File("server_storage");//server_storage
+        File[] userDirs = serverStorageDir.listFiles(File::isDirectory);  // Only directories (user folders)
+
+        if (userDirs == null || userDirs.length == 0) {
+            dataOutputStream.writeUTF("No users found.");
+            return;
+        }
+
+        // Iterate through each user directory and list their files
+        dataOutputStream.writeUTF("Available users and their files:");
+        int userIndex = 1;
+        for (File userDir : userDirs) {
+            String username = userDir.getName();
+            dataOutputStream.writeUTF("User " + userIndex + ": " + username);
+            userIndex++;
+
+            // List all files in the user's directory
+            File[] files = userDir.listFiles(File::isFile);  // Only files (not subdirectories)
+            if (files == null || files.length == 0) {
+                dataOutputStream.writeUTF("No files found for " + username);
+            } else {
+                int fileIndex = 1;
+                for (File file : files) {
+                    dataOutputStream.writeUTF(fileIndex + ": " + file.getName());
+                    fileIndex++;
+                }
+            }
         }
         dataOutputStream.writeUTF("END");
     }
 
-    
-    // CHECK We Will Not Use This Method For The Current Time
-    @SuppressWarnings("unused")
-	private void listServerFiles(DataOutputStream dataOutputStream) throws IOException {
-        File serverDir = new File("server_storage");
-        File[] files = serverDir.listFiles();
-        if (files == null || files.length == 0) {
-            dataOutputStream.writeUTF("No files found on server.");
+    private void sendFile(DataInputStream dataInputStream, DataOutputStream dataOutputStream, File userDir, String clientAddress) throws IOException {
+        // Step 1: Receive the index of the selected user
+        int userIndex = dataInputStream.readInt() - 1;  // Convert 1-based index to 0-based
+        File[] userDirs = new File("server_storage").listFiles(File::isDirectory);
+        
+        if (userIndex < 0 || userIndex >= userDirs.length) {
+            dataOutputStream.writeUTF("Invalid user choice.");
             return;
         }
-        dataOutputStream.writeUTF("Server Files:");
-        for (File file : files) {
-            dataOutputStream.writeUTF(file.getName());
-        }
-    }
 
-    private boolean sendFile(File dir, String requestedFileName, DataOutputStream dataOutputStream) throws IOException {
-        
-        File file = new File(dir, requestedFileName);
+        File selectedUserDir = userDirs[userIndex];
 
-        if (!file.exists()) {
-            dataOutputStream.writeUTF("File Not Found.");
-            return false;
+        // Step 2: List the files in the selected user's directory
+        File[] files = selectedUserDir.listFiles(File::isFile);  // Only files
+        if (files == null || files.length == 0) {
+            dataOutputStream.writeUTF("No files available for download.");
+            return;
         }
 
-        dataOutputStream.writeUTF("Starting file transfer");
-        System.out.println("Starting file transfer");
-        System.out.println();
-        
-        try (FileInputStream fileIn = new FileInputStream(file)) {
+        dataOutputStream.writeUTF("Available files for " + selectedUserDir.getName() + ":");
+        for (int i = 0; i < files.length; i++) {
+            dataOutputStream.writeUTF((i + 1) + ": " + files[i].getName());
+        }
+        dataOutputStream.writeUTF("END");
+
+        // Step 3: Receive the selected file index from the client
+        int fileIndex = dataInputStream.readInt() - 1;  // Convert 1-based index to 0-based
+
+        if (fileIndex < 0 || fileIndex >= files.length) {
+            dataOutputStream.writeUTF("Invalid file choice.");
+            return;
+        }
+
+        File fileToSend = files[fileIndex];
+        dataOutputStream.writeUTF("Starting file transfer.");
+        dataOutputStream.writeLong(fileToSend.length());
+
+        try (FileInputStream fileInputStream = new FileInputStream(fileToSend)) {
             byte[] buffer = new byte[4096];
             int bytesRead;
-            while ((bytesRead = fileIn.read(buffer)) != -1) {
-            	System.out.println(bytesRead);
+            while ((bytesRead = fileInputStream.read(buffer)) != -1) {
                 dataOutputStream.write(buffer, 0, bytesRead);
             }
-            
-            System.out.println("Done");
-            dataOutputStream.flush();
- 
-            //dataOutputStream.writeUTF("File Transfer Complete.");
-            System.out.println("File Transfer Complete.");
-            return true;
         }
+
+        dataOutputStream.writeUTF("File transfer complete.");
+        System.out.println("Sent file: " + fileToSend.getName() + " to client (" + clientAddress + ")");
     }
-    
-    private void exit(Socket clientSocket) throws IOException {
-    	System.out.println("Client Want To Disconnecting");
-    	clientSocket.close();
-    	System.out.println("Client Disconnected Successfuly"); 
-	}
+
+    public static void main(String[] args) {
+        new AuthenticatedFileServer("127.0.0.1", 5015).start();
+    }
 }
-
-
-
-
-
-// pathon install JDK
