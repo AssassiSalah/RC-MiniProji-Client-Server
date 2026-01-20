@@ -17,7 +17,7 @@ public class CheckVirus {
 				return CheckWithAPI.isSafe(file);
 			} else if (isWindows() && CheckWithDefender.isWindowsDefenderAvailable()) {
 						System.out.println("Check With Windows Defender");
-						return true;//CheckWithDefender.scanFileWithDefender(file.getAbsolutePath());//TODO FIX THIS
+						return CheckWithDefender.scanFileWithDefender(file.getAbsolutePath());//TODO FIX THIS
 			}
 		} catch(Exception e) {
 			System.out.println("Error scanning file with Windows Defender: " + e.getMessage());

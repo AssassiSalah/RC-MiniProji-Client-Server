@@ -1,0 +1,232 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.ComboBox?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.PasswordField?>
+<?import javafx.scene.control.ProgressBar?>
+<?import javafx.scene.control.TextArea?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.control.Tooltip?>
+<?import javafx.scene.image.Image?>
+<?import javafx.scene.image.ImageView?>
+<?import javafx.scene.layout.AnchorPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.shape.Line?>
+<?import javafx.scene.text.Font?>
+
+<VBox prefWidth="500.0" spacing="10.0" xmlns="http://javafx.com/javafx/22" xmlns:fx="http://javafx.com/fxml/1" fx:controller="application.UIController">
+   <children>
+      <HBox alignment="CENTER" prefWidth="500.0">
+         <children>
+            <HBox prefWidth="100.0" spacing="120.0">
+               <children>
+                  <Button mnemonicParsing="false" prefHeight="40.0" style="-fx-background-color: transparent; -fx-border-color: transparent; -fx-background-radius: 60%;">
+                     <graphic>
+                        <ImageView fx:id="state" fitHeight="40.0" fitWidth="40.0" pickOnBounds="true" preserveRatio="true" />
+                     </graphic>
+                     <tooltip>
+                        <Tooltip fx:id="state_text" text="Empty Tooltip" />
+                     </tooltip>
+                  </Button>
+               </children>
+            </HBox>
+            <HBox alignment="CENTER" prefHeight="40.0" prefWidth="300.0">
+               <children>
+                  <Label text="Welcome ">
+                     <font>
+                        <Font name="System Bold" size="14.0" />
+                     </font>
+                  </Label>
+                  <Label fx:id="username" text="NameUser">
+                     <font>
+                        <Font name="System Bold" size="18.0" />
+                     </font>
+                  </Label>
+               </children>
+            </HBox>
+            <AnchorPane prefHeight="40.0" prefWidth="80.0">
+               <children>
+                  <Button fx:id="connectionButton" mnemonicParsing="false" onAction="#connect" prefHeight="40.0" prefWidth="80.0" style="-fx-background-color: #45a049;" text="Connect" visible="false">
+                     <tooltip>
+                        <Tooltip text="Click To Connect To The Server" />
+                     </tooltip>
+                  </Button>
+                  <Button fx:id="exitButton" mnemonicParsing="false" onAction="#exit" opacity="0.93" prefHeight="40.0" style="-fx-background-color: transparent; -fx-border-color: transparent; -fx-background-radius: 60%;" AnchorPane.leftAnchor="25.0">
+                     <graphic>
+                        <ImageView fitHeight="40.0" fitWidth="40.0" pickOnBounds="true" preserveRatio="true">
+                           <image>
+                              <Image url="@../image/x%20button.png" />
+                           </image>
+                        </ImageView>
+                     </graphic>
+                     <tooltip>
+                        <Tooltip text="Click To Exit" />
+                     </tooltip>
+                  </Button>
+               </children>
+            </AnchorPane>
+         </children>
+         <VBox.margin>
+            <Insets />
+         </VBox.margin>
+         <padding>
+            <Insets bottom="10.0" left="20.0" right="20.0" top="20.0" />
+         </padding>
+      </HBox>
+      <Line endX="535.0">
+         <VBox.margin>
+            <Insets bottom="10.0" />
+         </VBox.margin>
+      </Line>
+      <AnchorPane>
+         <children>
+            <VBox fx:id="startingPane" prefWidth="500.0" spacing="20.0">
+               <children>
+                  <VBox fx:id="userInfoPane" alignment="CENTER" spacing="20.0">
+                     <children>
+                        <HBox alignment="CENTER" spacing="30.0">
+                           <children>
+                              <Label prefHeight="30.0" prefWidth="100.0" text="Username">
+                                 <font>
+                                    <Font name="System Bold" size="14.0" />
+                                 </font></Label>
+                              <TextField fx:id="usernameField" prefHeight="30.0" prefWidth="220.0" promptText="Enter Username ..." />
+                           </children>
+                        </HBox>
+                        <HBox alignment="CENTER" spacing="30.0">
+                           <children>
+                              <Label prefHeight="30.0" prefWidth="100.0" text="Password">
+                                 <font>
+                                    <Font name="System Bold" size="14.0" />
+                                 </font></Label>
+                              <PasswordField fx:id="passwordField" prefHeight="30.0" prefWidth="220.0" promptText="Enter Password ..." />
+                           </children>
+                        </HBox>
+                        <Button mnemonicParsing="false" onAction="#authunticate" prefHeight="30.0" prefWidth="90.0" style="-fx-background-color: #45a049;" text="Log In" />
+                     </children>
+                     <padding>
+                        <Insets right="60.0" />
+                     </padding>
+                  </VBox>
+               </children>
+            </VBox>
+            <VBox fx:id="commandPane" alignment="CENTER" prefWidth="500.0" spacing="20.0">
+               <children>
+                  <HBox alignment="CENTER" spacing="20.0">
+                     <children>
+                        <Label text="Command Selected : ">
+                           <font>
+                              <Font name="System Bold" size="16.0" />
+                           </font>
+                        </Label>
+                        <ComboBox fx:id="choiceCommand" prefHeight="30.0" prefWidth="150.0" promptText="Select Command" />
+                     </children>
+                  </HBox>
+                  <HBox alignment="CENTER" spacing="50.0">
+                     <children>
+                        <AnchorPane prefWidth="200.0">
+                           <children>
+                              <VBox fx:id="fileNamePane" spacing="20.0" AnchorPane.leftAnchor="130.0" AnchorPane.topAnchor="20.0">
+                                 <children>
+                                    <Label text="File Name">
+                                       <font>
+                                          <Font name="System Bold" size="14.0" />
+                                       </font>
+                                    </Label>
+                                    <TextField fx:id="fileName_TextField" prefHeight="30.0" promptText="Enter File Name Here" />
+                                 </children>
+                                 <padding>
+                                    <Insets left="20.0" top="10.0" />
+                                 </padding>
+                              </VBox>
+                              <VBox fx:id="filePathPane" alignment="CENTER" spacing="20.0" AnchorPane.leftAnchor="120.0" AnchorPane.topAnchor="20.0">
+                                 <children>
+                                    <TextField fx:id="pathSelected" alignment="CENTER" prefWidth="200.0" promptText="Enter Path Here ...">
+                                       <font>
+                                          <Font name="System Bold" size="14.0" />
+                                       </font>
+                                    </TextField>
+                                    <Button fx:id="importButton" mnemonicParsing="false" onAction="#importFile" prefWidth="60.0" text="Import" />
+                                 </children>
+                              </VBox>
+                              <VBox fx:id="progressPane" alignment="CENTER" spacing="10.0">
+                                 <children>
+                                    <Label fx:id="progressText" prefHeight="30.0" text="Progress Bar">
+                                       <font>
+                                          <Font name="System Bold" size="16.0" />
+                                       </font>
+                                    </Label>
+                                    <ProgressBar fx:id="progressBar" prefHeight="40.0" prefWidth="400.0" progress="0.0" />
+                                    <VBox>
+                                       <children>
+                                          <Line endX="200.0" fill="BLACK" startX="-194.0" />
+                                          <HBox spacing="73.0">
+                                             <children>
+                                                <Line endY="10.0" startY="-10.0" />
+                                                <Line endY="10.0" startY="-10.0">
+                                                   <HBox.margin>
+                                                      <Insets left="8.0" />
+                                                   </HBox.margin>
+                                                </Line>
+                                                <Line endY="10.0" startY="-10.0" />
+                                                <Line endY="10.0" startY="-10.0">
+                                                   <HBox.margin>
+                                                      <Insets />
+                                                   </HBox.margin>
+                                                </Line>
+                                                <Line endY="10.0" startY="-10.0">
+                                                   <HBox.margin>
+                                                      <Insets />
+                                                   </HBox.margin>
+                                                </Line>
+                                                <Line endY="10.0" startY="-10.0">
+                                                   <HBox.margin>
+                                                      <Insets left="15.0" />
+                                                   </HBox.margin>
+                                                </Line>
+                                             </children>
+                                          </HBox>
+                                          <HBox prefHeight="20.0" spacing="50.0">
+                                             <children>
+                                                <Label prefWidth="25.0" text="0" />
+                                                <Label prefWidth="25.0" text="20" />
+                                                <Label prefWidth="25.0" text="40" />
+                                                <Label prefWidth="25.0" text="60" />
+                                                <Label prefWidth="25.0" text="80" />
+                                                <Label prefWidth="25.0" text="100">
+                                                   <HBox.margin>
+                                                      <Insets left="6.0" />
+                                                   </HBox.margin>
+                                                </Label>
+                                             </children>
+                                          </HBox>
+                                       </children>
+                                    </VBox>
+                                 </children>
+                                 <padding>
+                                    <Insets left="30.0" right="30.0" />
+                                 </padding>
+                              </VBox>
+                              <TextArea fx:id="listFileArea" editable="false" promptText="  " visible="false" />
+                           </children>
+                        </AnchorPane>
+                     </children>
+                  </HBox>
+                  <Button fx:id="executedButton" mnemonicParsing="false" prefHeight="40.0" prefWidth="100.0" text="Run" />
+               </children>
+               <padding>
+                  <Insets left="20.0" right="20.0" top="20.0" />
+               </padding>
+            </VBox>
+         </children>
+      </AnchorPane>
+      <TextArea fx:id="logArea" editable="false" maxWidth="500.0" opacity="0.7" promptText="   ">
+         <font>
+            <Font size="14.0" />
+         </font>
+      </TextArea>
+   </children>
+</VBox>

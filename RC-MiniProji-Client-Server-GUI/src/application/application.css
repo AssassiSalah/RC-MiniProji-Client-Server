@@ -1,0 +1,97 @@
+/* JavaFX CSS - Leave this comment until you have at least create one rule which uses -fx-Property */
+
+/* General VBox styling */
+.vbox {
+    -fx-spacing: 10px;
+    -fx-padding: 20px;
+    -fx-background-color: #f4f4f4;
+    -fx-border-color: #cccccc;
+    -fx-border-width: 1px;
+    -fx-border-radius: 5px;
+    -fx-background-radius: 5px;
+}
+
+/* Labels */
+.label {
+    -fx-font-family: "Arial";
+    -fx-font-size: 14px;
+    -fx-text-fill: #333333;
+}
+
+.label.bold {
+    -fx-font-weight: bold;
+    -fx-font-size: 16px;
+}
+
+/* TextFields and PasswordFields */
+.text-field, .password-field {
+    -fx-pref-height: 30px;
+    -fx-padding: 5px;
+    -fx-border-color: #cccccc;
+    -fx-border-width: 1px;
+    -fx-border-radius: 3px;
+    -fx-background-radius: 3px;
+}
+
+.text-field:focused, .password-field:focused {
+    -fx-border-color: #4caf50;
+    -fx-background-color: #f0fff0;
+}
+
+/* Buttons */
+.button {
+    -fx-background-color: #4caf50;
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
+    -fx-border-radius: 5px;
+    -fx-background-radius: 5px;
+}
+
+.button:hover {
+    -fx-background-color: #45a049;
+}
+
+.button:pressed {
+    -fx-background-color: #3e8e41;
+}
+
+/* ComboBox */
+.combo-box {
+    -fx-border-color: #cccccc;
+    -fx-border-width: 1px;
+    -fx-border-radius: 3px;
+    -fx-background-radius: 3px;
+}
+
+.combo-box:focused {
+    -fx-border-color: #4caf50;
+    -fx-background-color: #f0fff0;
+}
+
+/* ProgressBar */
+.progress-bar {
+    -fx-accent: #4caf50;
+}
+
+/* Specific Element IDs */
+#logArea {
+    -fx-background-color: #e0e0e0;
+    -fx-border-color: #b0b0b0;
+}
+
+#state {
+    -fx-text-fill: black;
+    -fx-font-size: 16px;
+}
+
+#executedButton {
+    -fx-background-color: #ff5722;
+}
+
+#executedButton:hover {
+    -fx-background-color: #e64a19;
+}
+
+#executedButton:pressed {
+    -fx-background-color: #d84315;
+}
