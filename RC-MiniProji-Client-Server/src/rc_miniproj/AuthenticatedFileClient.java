@@ -5,6 +5,8 @@ import java.net.Socket;
 import java.util.Scanner;
 
 public class AuthenticatedFileClient {
+	
+	private static final String DEFAULT_PATH_DOWNLOAD = System.getProperty("user.home") + "/Downloads" +"/RC_miniproj";
     private static final String SERVER_ADDRESS = "localhost";//"192.168.1.4";//"localhost";
     private static final int SERVER_PORT = 1234;
     
@@ -47,13 +49,13 @@ public class AuthenticatedFileClient {
                     	List_Files_Server();
                         break;
                     case "DOWNLOAD":
-                    	File downloadDir = new File("downloads");
+                    	File downloadDir = new File(DEFAULT_PATH_DOWNLOAD);
                         if (!downloadDir.exists()) 
                         	downloadDir.mkdirs();
                         
                         System.out.print("Enter file name to download: ");
                         String fileName = scanner.nextLine();
-                        downloadFile(fileName, "downloads");
+                        downloadFile(fileName, DEFAULT_PATH_DOWNLOAD);
                         break;
                     case "EXIT":
                         exitConnection();
