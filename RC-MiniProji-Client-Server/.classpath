@@ -6,17 +6,7 @@
 			<attribute name="module" value="true"/>
 		</attributes>
 	</classpathentry>
-	<classpathentry kind="lib" path="commons-net-3.11.1/commons-net-3.11.1.jar">
-		<attributes>
-			<attribute name="module" value="true"/>
-		</attributes>
-	</classpathentry>
-	<classpathentry kind="lib" path="commons-net-3.11.1/commons-net-3.11.1-sources.jar">
-		<attributes>
-			<attribute name="module" value="true"/>
-		</attributes>
-	</classpathentry>
-	<classpathentry kind="lib" path="jars/commons-net-3.11.1/commons-net-examples-3.11.1.jar">
+	<classpathentry kind="lib" path="jars/commons-net-3.11.1.jar">
 		<attributes>
 			<attribute name="module" value="true"/>
 		</attributes>

@@ -210,7 +210,7 @@ public class FileManager {
        new Thread(uploadTask).start();
     }
 	
-	/**
+    /**
      * Sends a request to the server to remove a file.
      *
      * @param fileName the name of the file to be removed from the server
