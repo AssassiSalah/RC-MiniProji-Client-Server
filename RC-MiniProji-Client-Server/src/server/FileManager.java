@@ -39,7 +39,7 @@ public class FileManager {
 	 }
 	
 	//UPLOAD Command
-    public void receiveFile(File dir, String fileName) throws IOException {
+   /* public void receiveFile(File dir, String fileName) throws IOException {
     	File newFile = new File(dir, fileName);
 
         if (newFile.exists()) {
@@ -80,10 +80,62 @@ public class FileManager {
             	// TODO Remove File
             }
         }).start();
-    }
+    }*/
+	
+	public void receiveFile(File dir, String fileName) throws IOException {
+	    File newFile = new File(dir, fileName);
+
+	    if (newFile.exists()) {
+	        dataOutputStream.writeUTF("File Exists Already.");
+	        return;
+	    } else {
+	        dataOutputStream.writeUTF("Ready To Receive.");
+	    }
+
+	    long totalSize = dataInputStream.readLong();
+	    
+	    if (totalSize <= 0) {
+	        dataOutputStream.writeUTF("Invalid file size.");
+	        return;
+	    }
+	    
+	    long currentSize = 0;
+
+	    try (FileOutputStream fileOut = new FileOutputStream(newFile)) {
+	        byte[] buffer = new byte[4096];
+	        int bytesRead;
+	        while (currentSize < totalSize) {
+	            bytesRead = dataInputStream.read(buffer);
+	            if (bytesRead == -1) break; // Exit on error or end of file
+	            
+	            fileOut.write(buffer, 0, bytesRead);
+	            currentSize += bytesRead;
+	            
+	            System.out.println((double) currentSize / totalSize * 100 + "%");
+	        }
+
+	        System.out.println("File received successfully.");
+	        dataOutputStream.writeUTF("File " + fileName + " uploaded successfully.");
+	    } catch (IOException e) {
+	        System.out.println("Error during file reception: " + e.getMessage());
+	        dataOutputStream.writeUTF("Error during file reception.");
+	        e.printStackTrace();
+	    }
+
+	    // Async virus scan
+	    new Thread(() -> {
+	        if (CheckVirus.isSafe(newFile)) {
+	            System.out.println("The file is safe.");
+	        } else {
+	            System.out.println("Warning: The file is infected!");
+	            newFile.delete(); // Remove the file if infected
+	        }
+	    }).start();
+	}
+
 
 	//DOWNLOAD Command
-    public boolean sendFile(File dir, String requestedFileName) throws IOException {
+  /*  public boolean sendFile(File dir, String requestedFileName) throws IOException {
         
         File file = new File(dir, requestedFileName);
 
@@ -133,7 +185,78 @@ public class FileManager {
             return true;
         }
     }
-   
+   */
+    
+    public boolean sendFile(File dir, String requestedFileName) throws IOException {
+        File file = new File(dir, requestedFileName);
+
+        if (!file.exists()) {
+            dataOutputStream.writeUTF("File Not Found.");
+            return false;
+        }
+
+        dataOutputStream.writeUTF("Starting file transfer");
+
+        long totalSize = file.length();
+        System.out.println(totalSize);
+        
+        /*if (totalSize <= 0) {
+            System.out.println("Cannot send an empty file.");
+            dataOutputStream.writeUTF("Empty file cannot be sent.");
+            return false;
+        }*/
+
+        
+        
+        
+        long currentSize = 0;
+        System.out.println(totalSize + " " + currentSize);
+
+        dataOutputStream.writeLong(totalSize); // Send file size
+
+        System.out.println("Starting file transfer");
+        System.out.println();
+
+        try (FileInputStream fileIn = new FileInputStream(file)) {
+            byte[] buffer = new byte[4096];
+            int bytesRead;
+            while (currentSize < totalSize) {
+                bytesRead = fileIn.read(buffer);
+
+                // Check if the end of the file is reached
+                if (bytesRead == -1) {
+                    break; // Exit the loop
+                }
+
+                dataOutputStream.write(buffer, 0, bytesRead);
+
+                System.out.println((double) currentSize / totalSize * 100 + "%");
+                System.out.println();
+                currentSize += bytesRead;
+            }
+
+            System.out.println((double) currentSize / totalSize * 100 + "%");
+            System.out.println();
+
+            System.out.println("Done");
+            dataOutputStream.flush();
+
+            System.out.println("File Transfer Complete.");
+            return true;
+        } catch (IOException e) {
+            System.out.println("Error during file transfer: " + e.getMessage());
+            e.printStackTrace();
+            return false; // Handle exception as necessary
+        }
+    }
+
+    
+    
+    
+    
+    
+    
+    
     /**
      * Checks if a file exists in the specified folder and removes it if it does.
      * 

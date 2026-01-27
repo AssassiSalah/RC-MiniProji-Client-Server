@@ -60,7 +60,7 @@ public class FileManager {
         }
     }
 	
-	void downloadFile(String fileName, String destination) throws IOException {
+	/*void downloadFile(String fileName, String destination) throws IOException {
 		
     	dataOutputStream.writeUTF("DOWNLOAD");
     	
@@ -137,9 +137,71 @@ public class FileManager {
             new Thread(downloadTask).start();
             
             //logArea.appendText(dataInputStream.readUTF() + "\n");
-    }
+    }*/
+	void downloadFile(String fileName, String destination) throws IOException {
+	    dataOutputStream.writeUTF("DOWNLOAD");
+	    dataOutputStream.writeUTF(fileName);
+
+	    String response = dataInputStream.readUTF();
+	    System.out.println(response);
+
+	    if (response.contains("Not Found")) {
+	        System.out.println("Error: " + response);
+	        return;
+	    }
+
+	    File destDir = new File(destination);
+	    if (!destDir.exists() || !destDir.isDirectory()) {
+	        throw new IOException("Destination directory does not exist or is not valid: " + destination);
+	    }
+
+	    File downloadedFile = new File(destination + "/" + fileName);
+	    long totalSize = dataInputStream.readLong();
+
+	    if (totalSize <= 0) {
+	        throw new IOException("Invalid file size received: " + totalSize);
+	    }
+
+	    progressBar.setProgress(0);
+
+	    Task<Void> downloadTask = new Task<>() {
+	        @Override
+	        protected Void call() throws Exception {
+	            long currentSize = 0;
+
+	            try (FileOutputStream fileOut = new FileOutputStream(downloadedFile)) {
+	                byte[] buffer = new byte[4096];
+	                int bytesRead;
+
+	                while (currentSize < totalSize) {
+	                    bytesRead = dataInputStream.read(buffer);
+	                    if (bytesRead == -1) {
+	                        throw new IOException("Unexpected end of stream.");
+	                    }
+
+	                    fileOut.write(buffer, 0, bytesRead);
+	                    currentSize += bytesRead;
+
+	                    double progress = (double) currentSize / totalSize;
+	                    updateProgress(currentSize, totalSize);
+	                }
+
+	                System.out.println("File downloaded successfully.");
+	            } catch (IOException e) {
+	                System.err.println("Download failed: " + e.getMessage());
+	                throw e;
+	            }
+
+	            return null;
+	        }
+	    };
+
+	    progressBar.progressProperty().bind(downloadTask.progressProperty());
+	    new Thread(downloadTask).start();
+	}
+
 	
-    void uploadFile(String filePath) throws IOException {
+  /*  void uploadFile(String filePath) throws IOException {
     	
 		dataOutputStream.writeUTF("UPLOAD");
         File file = new File(filePath);
@@ -208,7 +270,78 @@ public class FileManager {
 
        // Run the task on a background thread
        new Thread(uploadTask).start();
-    }
+    }*/
+	
+	
+	void uploadFile(String filePath) throws IOException {
+	    dataOutputStream.writeUTF("UPLOAD");
+	    File file = new File(filePath);
+
+	    if (!file.exists() || !file.canRead() || file.length() == 0) {
+	        System.out.println("Invalid file: File does not exist, cannot be read, or is empty.");
+	        return;
+	    }
+
+	    // Send file name and wait for server response
+	    dataOutputStream.writeUTF(file.getName());
+	    String serverResponse = dataInputStream.readUTF();
+
+	    if (!serverResponse.contains("Ready")) {
+	        System.out.println("Server not ready or file already exists.");
+	        return;
+	    }
+
+	    long totalSize = file.length();
+	    dataOutputStream.writeLong(totalSize);
+
+	    Task<Void> uploadTask = new Task<>() {
+	        @Override
+	        protected Void call() throws Exception {
+	            long currentSize = 0;
+
+	            try (FileInputStream fileInputStream = new FileInputStream(file)) {
+	                byte[] buffer = new byte[4096];
+	                int bytesRead;
+
+	                while (currentSize < totalSize) {
+	                    bytesRead = fileInputStream.read(buffer);
+
+	                    if (bytesRead == -1) {
+	                        throw new IOException("Unexpected end of file during upload.");
+	                    }
+
+	                    dataOutputStream.write(buffer, 0, bytesRead);
+	                    currentSize += bytesRead;
+
+	                    double progress = (double) currentSize / totalSize;
+	                    updateProgress(currentSize, totalSize);
+
+	                    // Optional: Log progress once
+	                    if (currentSize % (totalSize / 10) == 0) {
+	                        System.out.printf("%.2f%% uploaded%n", progress * 100);
+	                    }
+	                }
+
+	                dataOutputStream.flush();
+	                System.out.println("File uploaded successfully.");
+	            } catch (IOException e) {
+	                System.err.println("Error during file upload: " + e.getMessage());
+	                throw e;
+	            }
+
+	            return null;
+	        }
+	    };
+
+	    progressBar.progressProperty().bind(uploadTask.progressProperty());
+	    new Thread(uploadTask).start();
+	}
+
+
+	   
+
+	
+	
 	
     /**
      * Sends a request to the server to remove a file.
