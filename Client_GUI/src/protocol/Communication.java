@@ -78,22 +78,29 @@ public class Communication {
     public void download(String fileName) {
         write("DOWNLOAD");
         write(fileName);
-        System.out.println("File Name : " + fileName);
+        System.out.println("File Name: " + fileName);
 
         String response = read();
 
         if (!response.contains("Ready")) {
-            if (response.contains("Algo"))
-                System.out.println("Algorithm Not Exist.");
-            else
-                System.out.println("File Already Exists");
+            Platform.runLater(() -> {
+                if (response.contains("Algo")) {
+                    System.out.println("Algorithm Not Exist.");
+                    Load_Interfaces.informationAlert("Error", "Algorithm does not exist.");
+                } else {
+                    System.out.println("File Already Exists");
+                    Load_Interfaces.informationAlert("Warning", "File already exists.");
+                }
+            });
             return;
         }
+
+        Platform.runLater(() -> Load_Interfaces.displayCircleProgress()); // Safely update the UI
         try {
-            Load_Interfaces.displayCircleProgress();
-            fileManager.downloadFile(fileName);
+            fileManager.downloadFile(fileName); // This runs asynchronously using a Task
         } catch (IOException | NoSuchAlgorithmException e) {
             e.printStackTrace();
+            Platform.runLater(() -> Load_Interfaces.informationAlert("Error", "An error occurred during the download."));
         }
     }
 
@@ -103,25 +110,45 @@ public class Communication {
      * @param fileName The name of the file to be downloaded.
      */
     public void advDownload(String fileName) {
-        write("ADVANCE_DOWNLOAD");
-        write(fileName);
+        // Create a new thread to handle the advanced download
+        new Thread(() -> {
+            write("ADVANCE_DOWNLOAD");
+            write(fileName);
 
-        String response = read();
+            String response = read();
 
-        if (response.contains("File Exist")) {
-        	response = read();
-        	if (!response.contains("Ready")) {
-                System.out.println("Algorithm Not Exist.");
-                return;
+            if (response.contains("File Exist")) {
+                response = read();
+                if (!response.contains("Ready")) {
+                    System.out.println("Algorithm Not Exist.");
+                    return;
+                }
+                try {
+                    // Display the progress circle (must run on the JavaFX thread)
+                    Platform.runLater(() -> Load_Interfaces.displayCircleProgress());
+
+                    // Start the download
+                    fileManager.downloadFile(fileName);
+
+                    // Stop progress display on success (must run on the JavaFX thread)
+                    Platform.runLater(() -> {
+                        System.out.println("Download completed successfully.");
+                        Load_Interfaces.displayCircleProgress();
+                    });
+
+                } catch (IOException | NoSuchAlgorithmException e) {
+                    e.printStackTrace();
+                    Platform.runLater(() -> {
+                        System.err.println("An error occurred during download: " + e.getMessage());
+                        Load_Interfaces.displayCircleProgress();
+                    });
+                }
+            } else {
+                System.out.println("File does not exist or cannot be downloaded.");
             }
-            try {
-                Load_Interfaces.displayCircleProgress();
-                fileManager.downloadFile(fileName);
-            } catch (IOException | NoSuchAlgorithmException e) {
-                e.printStackTrace();
-            }
-        }
+        }).start();
     }
+
 
     /**
      * Uploads a file to the server.

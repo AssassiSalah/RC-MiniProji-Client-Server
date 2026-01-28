@@ -69,7 +69,7 @@ public void update(double currentSize, double timeBetweenPacket) {
         System.out.printf("Current Speed: %.2f MB/sec%n", currentSpeed);
 
         // Update UI elements for speed and remaining time
-        speedTransferLabel.setText(String.format("%.1f KB/sec", currentSpeed));
+        speedTransferLabel.setText(String.format("%.1f MB/sec", currentSpeed));
         double remainingTime = averageTimeBetweenUpdates > 0 
         	    ? (((totalSize - currentSize) ) * (currentSpeed))/(1000*1024) 
         	    : Double.POSITIVE_INFINITY;
@@ -80,8 +80,8 @@ public void update(double currentSize, double timeBetweenPacket) {
     lastBatchTime = currentTime;
 
     // Update additional UI elements
-    currentSizeLabel.setText(String.format("%.1f KB", (currentSize)));
-    totalSizeLabel.setText(String.format("%.1f KB", totalSize));
+    currentSizeLabel.setText(String.format("%.1f MB", (currentSize/1024)));
+    totalSizeLabel.setText(String.format("%.1f MB", totalSize/1024));
     currentTimeLabel.setText(String.format("%.1f sec", (currentTime - startTime) / 1000.0));
 
     // If transfer is complete, stop progress

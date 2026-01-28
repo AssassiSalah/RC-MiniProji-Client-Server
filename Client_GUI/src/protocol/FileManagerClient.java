@@ -74,11 +74,22 @@ public class FileManagerClient {
 
         long totalSize = dataInputStream.readLong();
 
-        // Using a background thread to download the file asynchronously
+        // Task for downloading the file asynchronously
         Task<Void> downloadTask = new Task<>() {
             @Override
             protected Void call() throws IOException, NoSuchAlgorithmException {
-                System.out.println("start download");
+                System.out.println("Starting download...");
+
+                MessageDigest messageDigest;
+                try {
+                    messageDigest = MessageDigest.getInstance("SHA-256");
+                } catch (NoSuchAlgorithmException e) {
+                    System.err.println("SHA-256 is not available.");
+                    throw e;
+                }
+
+                AtomicLong currentSize = new AtomicLong(0);
+
                 try (RandomAccessFile fileOut = new RandomAccessFile(downloadedFile, "rw")) {
                     fileOut.setLength(totalSize);
 
@@ -86,7 +97,8 @@ public class FileManagerClient {
                     long currentPacket = 0;
 
                     long startMillis = System.currentTimeMillis();
-                    long endMillis = 0;
+                    long endMillis;
+
                     communication_Manager.startProgressTimer(totalSize);
 
                     while (currentPacket < packetCount) {
@@ -105,9 +117,18 @@ public class FileManagerClient {
                             fileOut.write(packet);
                             currentPacket++;
 
-                            if (currentPacket % 100 == 0) {
-                                communication_Manager.updateProgressTimer(currentPacket /1024, endMillis - startMillis);
-                                System.out.println("Packet " + currentPacket + " verified and written.");
+                            // Update current size and progress
+                            currentSize.addAndGet(bytesRead);
+                            messageDigest.update(buffer, 0, bytesRead);
+
+                            endMillis = System.currentTimeMillis();
+
+                            // Log progress every 10 KB
+                            if (currentSize.get() % 10_000 == 0) {
+                                double progress = (double) currentSize.get() / totalSize;
+                                communication_Manager.updateProgressTimer(currentSize.get() / 1024, endMillis - startMillis);
+
+                                System.out.printf("Packet %d downloaded: %.2f%%%n", currentPacket, progress * 100);
                             }
                         } else {
                             System.err.println("Hash mismatch for packet " + currentPacket + ". Retrying...");
@@ -118,10 +139,23 @@ public class FileManagerClient {
                     String finalHash = dataInputStream.readUTF();
                     System.out.println("Final file hash received: " + finalHash);
 
+                    // Verify final hash
+                    byte[] calculatedHash = messageDigest.digest();
+                    StringBuilder hashBuilder = new StringBuilder();
+                    for (byte b : calculatedHash) {
+                        hashBuilder.append(String.format("%02x", b));
+                    }
+
+                    String calculatedFileHash = hashBuilder.toString();
+                    if (!calculatedFileHash.equals(finalHash)) {
+                        System.err.println("File hash mismatch! Expected: " + finalHash + ", Calculated: " + calculatedFileHash);
+                    }
+
                     System.out.println("File downloaded successfully.");
                 } catch (IOException | NoSuchAlgorithmException e) {
                     System.err.println("Download failed: " + e.getMessage());
                     dataOutputStream.writeUTF("DOWNLOAD_FAILED");
+                    throw e;
                 }
                 return null;
             }
@@ -131,12 +165,15 @@ public class FileManagerClient {
 
         downloadTask.setOnSucceeded(event -> {
             System.out.println("Download Task completed successfully.");
+            communication_Manager.stopCircleProgressD();
         });
 
         downloadTask.setOnFailed(event -> {
             System.err.println("Download Task failed.");
+            communication_Manager.stopCircleProgressD();
         });
     }
+
 
     /**
      * Uploads a file to the server asynchronously.
