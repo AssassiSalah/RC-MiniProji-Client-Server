@@ -15,9 +15,10 @@ import application.AppConst;
 import application.Load_Interfaces;
 
 import javafx.concurrent.Task;
+import javafx.stage.FileChooser;
 
 public class FileManager {
-	
+
 	private Communication communication_Manager;
 
 	private DataInputStream dataInputStream;
@@ -25,7 +26,8 @@ public class FileManager {
 
 	private int BUFFER_SIZE = 8192;
 
-	FileManager(Communication communication_Manager, DataInputStream dataInputStream, DataOutputStream dataOutputStream) {
+	public FileManager(Communication communication_Manager, DataInputStream dataInputStream,
+			DataOutputStream dataOutputStream) {
 		this.communication_Manager = communication_Manager;
 		this.dataInputStream = dataInputStream;
 		this.dataOutputStream = dataOutputStream;
@@ -43,17 +45,57 @@ public class FileManager {
 		communication_Manager.write(message);
 	}
 
-	void downloadFile(String fileName) throws NoSuchAlgorithmException, IOException {
+	/**
+	 * Opens a file chooser dialog and returns the selected file path.
+	 * 
+	 * @return the absolute path of the selected file, or empty string if no file
+	 *         was selected
+	 */
+	public static String importFile() {
+		// Create a FileChooser instance
+		FileChooser fileChooser = new FileChooser();
+
+		// Set an optional title for the file chooser dialog
+		fileChooser.setTitle("Select a File to Import");
+
+		// Set an initial directory
+		fileChooser.setInitialDirectory(new File(System.getProperty("user.home")));
+
+		// Add extension filters to limit file types
+		fileChooser.getExtensionFilters().addAll(
+				new FileChooser.ExtensionFilter("All Files", "*.*"),
+				new FileChooser.ExtensionFilter("Text Files", "*.txt"),
+				new FileChooser.ExtensionFilter("Image Files", "*.png", "*.jpg", "*.jpeg"));
+
+		// Show the open dialog and get the selected file
+		File selectedFile = fileChooser.showOpenDialog(null);
+
+		if (selectedFile != null) {
+			String filePath = selectedFile.getAbsolutePath();
+			System.out.println("File selected: " + filePath);
+			return filePath;
+		} else {
+			System.out.println("No file selected.");
+			return "";
+		}
+	}
+
+	/**
+	 * Downloads a file from the server.
+	 * 
+	 * @param fileName the name of the file to download
+	 */
+	public void downloadFile(String fileName) throws NoSuchAlgorithmException, IOException {
 
 		File downloadedFile = new File(AppConst.DEFAULT_DOWNLOAD_PATH, fileName);
 
 		long totalSize = dataInputStream.readLong();
-		
+
 		Load_Interfaces.startCircleProgress(totalSize);
 
 		Task<Void> downloadTask = new Task<>() {
 			@Override
-			protected Void call() throws IOException, NoSuchAlgorithmException  { // FileNotFoundException, IOException
+			protected Void call() throws IOException, NoSuchAlgorithmException {
 
 				long currentSize = 0;
 
@@ -63,8 +105,8 @@ public class FileManager {
 				long packetCount = (long) Math.ceil((double) totalSize / BUFFER_SIZE);
 
 				System.out.println("Start The Reading");
-				
-				for(long currentPacket = 0; currentPacket < packetCount; currentPacket++) {
+
+				for (long currentPacket = 0; currentPacket < packetCount; currentPacket++) {
 					dataOutputStream.writeUTF("REQUEST_PACKET " + currentPacket); // Request current packet
 
 					byte[] buffer = new byte[BUFFER_SIZE];
@@ -74,10 +116,7 @@ public class FileManager {
 
 					// Log progress percentage
 					System.out.printf("%.2f%% Downloaded%n", ((double) currentSize / totalSize) * 100);
-					
-					// Update progress
-					// ----updateProgress(currentSize, totalSize);
-					
+
 					byte[] packet = Arrays.copyOf(buffer, bytesRead);
 					String receivedHash = dataInputStream.readUTF(); // Receive packet hash
 
@@ -85,10 +124,9 @@ public class FileManager {
 					if (receivedHash.equals(calculatedHash)) {
 						fileOut.seek(currentPacket * BUFFER_SIZE);
 						fileOut.write(packet);
-						
+
 						if (currentPacket % 1000 == 0) {
 							System.out.println("Packet " + currentPacket + " verified and written.");
-
 						}
 					} else {
 						System.err.println("Hash mismatch for packet " + currentPacket + ". Retrying...");
@@ -107,22 +145,25 @@ public class FileManager {
 
 		System.out.println("File downloaded successfully.");
 
-		// Bind the progress property to the ProgressBar
-		// progressBar.progressProperty().bind(downloadTask.progressProperty());
-
 		// Run the task on a background thread
 		new Thread(downloadTask).start();
 	}
 
-	void uploadFile(File file, long totalSize) throws IOException {
+	/**
+	 * Uploads a file to the server.
+	 * 
+	 * @param file      the file to upload
+	 * @param totalSize the total size of the file in bytes
+	 */
+	public void uploadFile(File file, long totalSize) throws IOException {
 
 		// Using SHA-256 for hash calculation
 		MessageDigest messageDigest;
 		try {
 			messageDigest = MessageDigest.getInstance("SHA-256");
 		} catch (NoSuchAlgorithmException e) {
-			System.err.println("SHA-256 is not exsit.");
-			System.err.println("Cause : not set up java probably");
+			System.err.println("SHA-256 is not exist.");
+			System.err.println("Cause: Java not set up properly");
 			return;
 		}
 
@@ -135,32 +176,35 @@ public class FileManager {
 			@Override
 			protected Void call() throws Exception {
 
-				System.out.println("start to upload ");
+				System.out.println("Starting upload...");
 
 				try (FileInputStream fileInputStream = new FileInputStream(file)) {
 					byte[] buffer = new byte[4096];
 					int bytesRead;
-					int sequenceNumber = 0; // Sequence number for each chunk
-
+					int sequenceNumber = 0;
+					long startMillis = System.currentTimeMillis();
+					long endMillis = 0;
 					communication_Manager.startProgressTimer(totalSize);
+
 					while (currentSize.get() < totalSize) {
-				        long startMillis = System.currentTimeMillis();
 
 						bytesRead = fileInputStream.read(buffer);
 						// Check if the end of the file is reached
 						if (bytesRead == -1) {
-							break; // Exit the loop if end of file is reached
+							break;
 						}
 
 						dataOutputStream.write(buffer, 0, bytesRead);
-						messageDigest.update(buffer, 0, bytesRead); // Update hash with the current chunk
-						currentSize.addAndGet(bytesRead); // Safely update currentSize
+						messageDigest.update(buffer, 0, bytesRead);
+						currentSize.addAndGet(bytesRead);
 
-				        long endMillis = System.currentTimeMillis();
-				        communication_Manager.updateProgressTimer(currentSize.get(), endMillis - startMillis);
+						endMillis = System.currentTimeMillis();
 
-						// Optionally display the upload progress for one out of every 10,000 packets
+						// Display upload progress every 10,000 bytes
 						if (currentSize.get() % 10000 == 0) {
+							communication_Manager.updateProgressTimer(currentSize.get() / 1024,
+									(endMillis - startMillis));
+
 							double progress = (double) currentSize.get() / totalSize;
 							System.out.printf("Chunk %d uploaded: %.2f%%\n", ++sequenceNumber, progress * 100);
 						}
@@ -168,7 +212,7 @@ public class FileManager {
 
 					dataOutputStream.flush();
 
-					byte[] calculatedHash = messageDigest.digest(); // Final file hash
+					byte[] calculatedHash = messageDigest.digest();
 
 					// Convert hash to hex
 					StringBuilder hashBuilder = new StringBuilder();
@@ -183,19 +227,14 @@ public class FileManager {
 					write("File uploaded. Hash: " + fileHash);
 
 					System.out.println("File uploaded successfully.");
-					// Load_Interfaces.informationAlert("File uploaded successfully",
-					// dataInputStream.readUTF());
 				} catch (Exception e) {
 					e.printStackTrace();
 				}
-				
+
 				Load_Interfaces.displayUpload();
 				return null;
 			}
 		};
-
-		// Bind the progress property to the ProgressBar
-		// ---progressBar.progressProperty().bind(uploadTask.progressProperty());
 
 		// Run the task on a background thread
 		new Thread(uploadTask).start();
@@ -203,11 +242,10 @@ public class FileManager {
 
 	/**
 	 * Sends a request to the server to remove a file.
-	 *
+	 * 
 	 * @param fileName the name of the file to be removed from the server
-	 * @throws IOException
 	 */
-	void removeFileFromServer(String fileName) {
+	public void removeFileFromServer(String fileName) {
 		write("REMOVE");
 		// Send the file name to be removed
 		write(fileName);
@@ -218,12 +256,32 @@ public class FileManager {
 		// Handle the server's response
 		if (serverResponse.contains("Success")) {
 			Load_Interfaces.informationAlert("File removed successfully",
-					"The File : " + fileName + ", Has Been Removed");
+					"The File: " + fileName + ", Has Been Removed");
 		} else if (serverResponse.contains("Not Found")) {
-			Load_Interfaces.informationAlert("File Not Found", "The File : " + fileName + ", Not Exist in The Server");
+			Load_Interfaces.informationAlert("File Not Found", "The File: " + fileName + ", Not Exist in The Server");
 		} else {
 			Load_Interfaces.informationAlert("File Failed To Remove",
-					"The File : " + fileName + ", Still Exist in The Server");
+					"The File: " + fileName + ", Still Exist in The Server");
 		}
+	}
+
+	// Helper method to convert hex string to byte array
+	private byte[] hexToBytes(String hex) {
+		int len = hex.length();
+		byte[] result = new byte[len / 2];
+		for (int i = 0; i < len; i += 2) {
+			result[i / 2] = (byte) ((Character.digit(hex.charAt(i), 16) << 4)
+					+ Character.digit(hex.charAt(i + 1), 16));
+		}
+		return result;
+	}
+
+	// Helper method to convert byte array to hex string
+	private String bytesToHex(byte[] bytes) {
+		StringBuilder hexString = new StringBuilder();
+		for (byte b : bytes) {
+			hexString.append(String.format("%02x", b));
+		}
+		return hexString.toString();
 	}
 }

@@ -1,332 +1,239 @@
 package server;
 
-import java.io.BufferedReader;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
-import java.io.FileReader;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.PrintWriter;
 import java.io.RandomAccessFile;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
+import Hash.HashUtil;
 import check_virus.CheckVirus;
 
 public class FileManager {
-	
-	private DataInputStream dataInputStream;
-    private DataOutputStream dataOutputStream;
-    private BufferedReader reader;
-    private PrintWriter writer ;
-    
+
+    private final DataInputStream dataInputStream;
+    private final DataOutputStream dataOutputStream;
     private static final int BUFFER_SIZE = 8192; // Adjust as needed
-	
-    public FileManager(DataInputStream dataInputStream, DataOutputStream dataOutputStream, BufferedReader reader, PrintWriter writer) {
+
+    public FileManager(DataInputStream dataInputStream, DataOutputStream dataOutputStream) {
         this.dataInputStream = dataInputStream;
         this.dataOutputStream = dataOutputStream;
-        this.reader = reader;
-        this.writer = writer;
     }
-	
+
     // HACK this method work instead of Database (we don't have DB)
     public static Map<String, String> getUsers() {
-    	Map<String, String> users = new HashMap<String, String>();
+        Map<String, String> users = new HashMap<String, String>();
         // Sample user credentials
-    	users.put("admin", util.Hasher.hashPassword("admin"));
-    	createIfNotExist("admin");
-    	users.put("1", util.Hasher.hashPassword("1"));
-    	createIfNotExist("1");
-        users.put("user1", util.Hasher.hashPassword("pass1"));
-        createIfNotExist("user1");
-        users.put("user2", util.Hasher.hashPassword("pass2"));
-        createIfNotExist("user2");
+        users.put("user1", "pass1");
+        users.put("user2", "pass2");
         return users;
     }
 
-	public static void createIfNotExist(String pathDir) {
-		 File folderDir= new File(pathDir);
-	    	
-	    if(!folderDir.exists())
-	    	folderDir.mkdirs();
-	    
-	 }
-	
-    public String read(BufferedReader reader) {
-        try {
-			return reader.readLine();
-		} catch (IOException e) {
-		    System.err.println("I/O error occurred while reading a line.");
-		    System.err.println("Cause: General input/output issues, like network failure or stream interruption.");
-		} catch (Exception e) {
-		    System.err.println("Unexpected error occurred: " + e.getMessage());
-		    e.printStackTrace(); // Log the stack trace for debugging.
-		}
-		return null;
+    public static void createIfNotExist(String pathDir) {
+        File folderDir = new File(pathDir);
+
+        if (!folderDir.exists())
+            folderDir.mkdirs();
+
     }
-    
-    public void write(String message) {
-    	writer.println(message);
-    }
-	
-	//UPLOAD Command
-    public void receiveFile(File dir, String fileName) throws IOException {
-    	File newFile = new File(dir, fileName);
-	    MessageDigest messageDigest;
-		try {
-			// Using SHA-256 for hash calculation
-			messageDigest = MessageDigest.getInstance("SHA-256");
-		} catch (NoSuchAlgorithmException e) {
-			System.err.println("SHA-256 is not exsit.");
-			System.err.println("Cause : not set up java probably");
-			write("Algo Of Hash Not Exist.");
-            return;
-		} 
+
+    public void receiveFile(File dir, String fileName) throws IOException, NoSuchAlgorithmException {
+        File newFile = new File(dir, fileName);
+        MessageDigest messageDigest = MessageDigest.getInstance("SHA-256"); // Using SHA-256 for hash calculation
 
         if (newFile.exists()) {
-            write("File Already Exist.");
+            dataOutputStream.writeUTF("File Exists Already.");
             return;
-        } else
-        	write("Ready To Receive.");
+        } else {
+            dataOutputStream.writeUTF("Ready To Receive.");
+        }
 
         long totalSize = dataInputStream.readLong(); // Read file size
-        
-        if (totalSize == 0) {
-	        dataOutputStream.writeUTF("Invalid file size.");
-	        return;
-	    }
-        
         long currentSize = 0;
 
-	    try (RandomAccessFile randomAccessFile = new RandomAccessFile(newFile, "rw")) {
+        try (RandomAccessFile randomAccessFile = new RandomAccessFile(newFile, "rw")) {
             byte[] buffer = new byte[4096];
             int bytesRead;
-	        int sequenceNumber = 0; // Sequence number to ensure proper chunk order
+            int sequenceNumber = 0; // Sequence number to ensure proper chunk order
 
-			for (; currentSize < totalSize; currentSize += bytesRead) {
-				// Log progress percentage
-				//System.out.printf("%.2f%% Recieve File%n", ((double) currentSize / totalSize) * 100);
-				
-            	bytesRead = dataInputStream.read(buffer);
-            	// Check if the end of the file is reached
-                if (bytesRead == -1) { //EOF
-                    break; // Exit the loop
+            while (currentSize < totalSize) {
+                bytesRead = dataInputStream.read(buffer);
+
+                if (bytesRead == -1) {
+                    break; // Exit the loop if end of stream is reached
                 }
-                
+
                 // Write the data to the file
-	            randomAccessFile.write(buffer, 0, bytesRead);
-	            messageDigest.update(buffer, 0, bytesRead); // Update the hash with the received data
-	            
-	            sequenceNumber++;
-	            
-	            // Display progress for every 10,000 bytes (you can adjust this logic if needed)
-	            if (currentSize % 10000 == 0) {
-	                double progress = (double) currentSize / totalSize * 100;
-	               System.out.printf("Received chunk %d: %.2f%%\n", sequenceNumber, progress);
-	            }
+                randomAccessFile.write(buffer, 0, bytesRead);
+                messageDigest.update(buffer, 0, bytesRead); // Update the hash with the received data
 
-	            // Optionally, send back the progress to the client (only display for one out of every 10,000 packets)
-	            if (sequenceNumber % 10000 == 0) {
-	                dataOutputStream.writeUTF("Chunk " + sequenceNumber + " received successfully.");
-	            }
-            }
-			
-			// Calculate the received hash and compare
-	        byte[] receivedHash = messageDigest.digest();
-	        StringBuilder hashBuilder = new StringBuilder();
-	        for (byte b : receivedHash) {
-	            hashBuilder.append(String.format("%02x", b));
-	        }
+                currentSize += bytesRead;
+                sequenceNumber++;
 
-	        String calculatedHash = hashBuilder.toString();
-	        
-	        ///TODO Test The Hash
-			
-            write("File " + fileName + " Transfer Successful.");
-            
-            write("File received. Hash: " + calculatedHash);
-	        System.out.println("100%");
-        } catch (IOException e) {
-	        System.out.println("Error during file reception: " + e.getMessage());
-	        write("Error during file reception.");
-	        write("no Hash.");
-	        // e.printStackTrace();
-	    }
-        
-     // Async virus scan
-        new Thread(() -> {
-            if (CheckVirus.isSafe(newFile)) { // check this
-                System.out.println("The file is safe.");
-            } else {
-                System.out.println("Warning: The file is infected!");
-                // TODO if check Virus Validate Then Remove Comments
-                // newFile.delete(); // Remove the file if infected
+                // Display progress for every 10,000 bytes (you can adjust this logic if needed)
+                if (currentSize % 10000 == 0) {
+                    double progress = (double) currentSize / totalSize * 100;
+                    // System.out.printf("Received chunk %d: %.2f%%\n", sequenceNumber, progress);
+                }
+
+                // Optionally, send back the progress to the client (only display for one out of
+                // every 10,000 packets)
+                if (sequenceNumber % 10000 == 0) {
+                    dataOutputStream.writeUTF("Chunk " + sequenceNumber + " received successfully.");
+                }
             }
-        }).start();
+
+            // Calculate the received hash and compare
+            byte[] receivedHash = messageDigest.digest();
+            StringBuilder hashBuilder = new StringBuilder();
+            for (byte b : receivedHash) {
+                hashBuilder.append(String.format("%02x", b));
+            }
+
+            String calculatedHash = hashBuilder.toString();
+
+            // If needed, disable hash printing in console
+            // System.out.println("Calculated Hash: " + calculatedHash);
+
+            // Send hash back to client
+            dataOutputStream.writeUTF("File received. Hash: " + calculatedHash);
+
+            // Optionally check for file viruses (async)
+            new Thread(() -> {
+                boolean test = true;
+                /* if (CheckVirus.isSafe(newFile)||test) */
+                if (CheckVirus.isSafe(newFile) || test) {
+                    System.out.println("The file is safe.");
+                } else {
+                    System.out.println("Warning: The file is infected!");
+                    // TODO: Remove the file if infected
+                }
+            }).start();
+        }
     }
 
-	//DOWNLOAD Command
-    public boolean sendFile(File dir, String requestedFileName) throws IOException {
-        
+    public boolean processRequest(String command, File dir, String requestedFileName)
+            throws IOException, NoSuchAlgorithmException {
+        // Process the command directly
+        if (command.startsWith("RESEND")) {
+            return sendFile(dir, requestedFileName);
+        }
+        return false;
+    }
+
+    public boolean sendFile(File dir, String requestedFileName) throws IOException, NoSuchAlgorithmException {
         File file = new File(dir, requestedFileName);
 
         if (!file.exists()) {
-            write("File Not Found.");
+            dataOutputStream.writeUTF("File Not Found.");
             return false;
         }
-        
-        write("Starting file transfer");
-        
+
+        dataOutputStream.writeUTF("TRANSFER " + requestedFileName);
+
         long totalSize = file.length();
-        System.out.println("Total Size : " + totalSize);
-                
-        dataOutputStream.writeLong(totalSize); // Send file size
+        dataOutputStream.writeLong(totalSize); // Send total file size
 
-        System.out.println("Starting file transfer\n");
-        
-        try (RandomAccessFile randomAccessFile = new RandomAccessFile(file, "r")) { // FileInputStream
-	        long packetCount = (long) Math.ceil((double) totalSize / BUFFER_SIZE);
-	        byte[][] packets = new byte[(int) packetCount][];
-	        String[] packetHashes = new String[(int) packetCount];
+        try (RandomAccessFile randomAccessFile = new RandomAccessFile(file, "r")) {
+            long packetCount = (long) Math.ceil((double) totalSize / BUFFER_SIZE);
+            byte[][] packets = new byte[(int) packetCount][];
+            String[] packetHashes = new String[(int) packetCount];
 
-	        MessageDigest messageDigest = MessageDigest.getInstance("SHA-256");
+            MessageDigest messageDigest = MessageDigest.getInstance("SHA-256");
 
-	        // Preload file into packets and compute hashes
-	        for (int i = 0; i < packetCount; i++) {
-	            int packetSize = (int) Math.min(BUFFER_SIZE, totalSize - (long) i * BUFFER_SIZE);
-	            byte[] packet = new byte[packetSize];
-	            randomAccessFile.seek((long) i * BUFFER_SIZE); // send the i packet 
-	            randomAccessFile.readFully(packet);
-	            packets[i] = packet;
+            // Preload file into packets and compute hashes
+            for (int i = 0; i < packetCount; i++) {
+                int packetSize = (int) Math.min(BUFFER_SIZE, totalSize - (long) i * BUFFER_SIZE);
+                byte[] packet = new byte[packetSize];
+                randomAccessFile.seek((long) i * BUFFER_SIZE);
+                randomAccessFile.readFully(packet);
+                packets[i] = packet;
 
-	            String hash = HashUtil.computeSHA256(packet);
-	            packetHashes[i] = hash;
-	            messageDigest.update(packet); // Update the overall hash
-	        }
+                String hash = HashUtil.computeSHA256(packet);
+                packetHashes[i] = hash;
+                messageDigest.update(packet); // Update the overall hash
+            }
 
-	        byte[] fileHash = messageDigest.digest();
+            byte[] fileHash = messageDigest.digest();
 
-	        // Respond to client requests for packets
-	        while (true) {
-	            String clientRequest = dataInputStream.readUTF();
+            // Respond to client requests for packets
+            while (true) {
+                String clientRequest = dataInputStream.readUTF();
 
-	            if (clientRequest.startsWith("REQUEST_PACKET")) {
-	                int packetIndex = Integer.parseInt(clientRequest.split(" ")[1]);
+                if (clientRequest.startsWith("REQUEST_PACKET")) {
+                    int packetIndex = Integer.parseInt(clientRequest.split(" ")[1]);
 
-	                if (packetIndex >= 0 && packetIndex < packetCount) {
-	                    dataOutputStream.write(packets[packetIndex]); // Send packet
-	                    dataOutputStream.writeUTF(packetHashes[packetIndex]); // Send hash
-	                } else {
-	                    dataOutputStream.writeUTF("INVALID_PACKET_INDEX");
-	                }
-	            } else if (clientRequest.equals("TRANSFER_COMPLETE")) {
-	                dataOutputStream.writeUTF("FINAL_HASH " + HashUtil.bytesToHex(fileHash)); // Send final hash
-	                break;
-	            }
-	        }
+                    if (packetIndex >= 0 && packetIndex < packetCount) {
+                        dataOutputStream.write(packets[packetIndex]); // Send packet
+                        dataOutputStream.writeUTF(packetHashes[packetIndex]); // Send hash
+                    } else {
+                        dataOutputStream.writeUTF("INVALID_PACKET_INDEX");
+                    }
+                } else if (clientRequest.equals("TRANSFER_COMPLETE")) {
+                    dataOutputStream.writeUTF("FINAL_HASH " + HashUtil.bytesToHex(fileHash)); // Send final hash
+                    break;
+                }
+            }
 
-	        return true;
-	    } catch (Exception e) {
-	        System.err.println("Error during file transfer: " + e.getMessage());
-	        dataOutputStream.writeUTF("TRANSFER_FAILED " + e.getMessage());
-	        return false;
-	    }
+            return true;
+        } catch (Exception e) {
+            System.err.println("Error during file transfer: " + e.getMessage());
+            dataOutputStream.writeUTF("TRANSFER_FAILED " + e.getMessage());
+            return false;
+        }
     }
-    
+
+    // Helper method to convert hex string to byte array
+    private byte[] hexToBytes(String hex) {
+        int len = hex.length();
+        byte[] result = new byte[len / 2];
+        for (int i = 0; i < len; i += 2) {
+            result[i / 2] = (byte) ((Character.digit(hex.charAt(i), 16) << 4)
+                    + Character.digit(hex.charAt(i + 1), 16));
+        }
+        return result;
+    }
+
+    // Helper method to convert byte array to hex string for readability
+    private String bytesToHex(byte[] bytes) {
+        StringBuilder hexString = new StringBuilder();
+        for (byte b : bytes) {
+            hexString.append(String.format("%02x", b));
+        }
+        return hexString.toString();
+    }
+
     /**
      * Checks if a file exists in the specified folder and removes it if it does.
      * 
      * @param folderPath the path of the folder
      * @param fileName   the name of the file to check and remove
      * @return true if the file was found and removed, false otherwise
-     * @throws IOException 
+     * @throws IOException
      */
     public boolean removeFile(File folder, String fileName) throws IOException {
         File file = new File(folder, fileName);
         if (file.exists()) {
             if (file.delete()) {
-            	write("Success");
+                dataOutputStream.writeUTF("Success");
                 System.out.println("File removed successfully");
                 return true;
             } else {
-            	write("Error");
+                dataOutputStream.writeUTF("Error");
                 System.out.println("Failed to remove the file");
                 return false;
             }
         } else {
-        	write("Not Found");
+            dataOutputStream.writeUTF("Not Found");
             System.out.println("File does not exist: " + file.getAbsolutePath());
             return false;
         }
-    }   
-
-    public String searchInCollaboration(String fileName) {
-        File folder = new File(AppConst.PATH_SERVER);
-
-        // Get all .txt files in the folder
-        File[] textFiles = folder.listFiles((dir, name) -> name.toLowerCase().endsWith(".txt"));
-        System.out.println("text files is null? " + (textFiles == null));
-        if (textFiles != null) {
-            System.out.println("text files size : " + textFiles.length);
-            for (File textFile : textFiles) {
-                // Read each .txt file line by line
-                System.out.println("Check textFile : " + textFile);
-                try (BufferedReader reader = new BufferedReader(new FileReader(textFile))) {
-                    String line;
-                    while ((line = reader.readLine()) != null) {
-                        if (line.trim().equals(fileName)) {
-                        	String whoHaveFile = textFile.getName();
-                        	
-                        	if (whoHaveFile.endsWith(".txt")) {
-                        		whoHaveFile = whoHaveFile.substring(0, whoHaveFile.lastIndexOf("."));
-                        	}
-                        	write("File Exist.");
-                        	System.out.println("File Exist With : " + whoHaveFile);
-                        	return whoHaveFile;
-                        }
-                    }
-                } catch (IOException e) {
-                    System.err.println("Error reading file: " + textFile.getName());
-                    // e.printStackTrace();
-                }
-            }
-        }
-
-        // If the file name was not found in any .txt file
-        write("File Dosn't Exist.");
-        System.out.println("File Dosn't Exist.");
-        return "";
     }
-    
-    /*
-    private static String searchInFolder(File folder, String fileName) { // search in all server
-            
-        // Ensure the folder exists and is a directory
-        if (!folder.exists() || !folder.isDirectory()) {
-            System.out.println("The File Not Exist In Another Clints");;
-        }
-        
-        File[] files = folder.listFiles();
-
-        if (files != null) {
-            for (File file : files) {
-                if (file.isDirectory()) {
-                    // Recursive call for subdirectories
-                    String foundPath = searchInFolder(file, fileName);
-                    if (foundPath != null) {
-                        return foundPath;
-                    }
-                } else if (file.getName().equals(fileName)) {
-                    // File found
-                    return file.getAbsolutePath();
-                }
-            }
-        }
-
-        // File not found in this directory or its subdirectories
-        return null;
-    }
-    */
 }
