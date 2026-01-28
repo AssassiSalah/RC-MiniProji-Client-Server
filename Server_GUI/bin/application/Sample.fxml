@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
+
+<BorderPane maxHeight="640.0" maxWidth="1160.0" prefWidth="1160.0" xmlns="http://javafx.com/javafx/23.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="application.SampleController">
+   <left>
+      <VBox alignment="CENTER" prefHeight="400.0" prefWidth="120.0" BorderPane.alignment="CENTER" />
+   </left>
+   <right>
+      <VBox alignment="CENTER" prefHeight="400.0" prefWidth="120.0" BorderPane.alignment="CENTER" />
+   </right>
+   <top>
+      <HBox alignment="CENTER" prefHeight="120.0" prefWidth="200.0" BorderPane.alignment="CENTER" />
+   </top>
+   <bottom>
+      <HBox alignment="CENTER" prefHeight="120.0" prefWidth="200.0" BorderPane.alignment="CENTER" />
+   </bottom>
+<center>
+    <VBox alignment="CENTER" maxHeight="400.0" maxWidth="920.0" minHeight="400.0" minWidth="920.0" prefHeight="400.0" prefWidth="920.0" BorderPane.alignment="CENTER">
+        <children>
+            <TableView fx:id="userTableView" prefHeight="399.0" prefWidth="1120.0">
+                <columns>
+                    <TableColumn fx:id="usernameColumn" prefWidth="75.0" text="Username" />
+                    <TableColumn fx:id="hashPasswordColumn" prefWidth="75.0" text="Hash Password" />
+                    <TableColumn fx:id="publicKeyColumn" prefWidth="75.0" text="Public Key" />
+                    <TableColumn fx:id="totalFilesSentColumn" prefWidth="68.0" text="Tot_FiLS" visible="false" />
+                    <TableColumn fx:id="totalFilesReceivedColumn" prefWidth="67.0" text="Tot_FiLR" visible="false" />
+                    <TableColumn fx:id="numberOfVirusSendsColumn" prefWidth="67.0" text="N_Virus_S" visible="false" />
+                    <TableColumn fx:id="viewStatsColumn" text="View Stats" />
+               
+                    <TableColumn fx:id="lastTimeConnectedColumn" prefWidth="53.0" text="LTC" />
+                    <TableColumn fx:id="lastIpUsedColumn" minWidth="9.0" prefWidth="68.0" text="LAST_IP" />
+                    <TableColumn fx:id="normalDisconnectColumn" prefWidth="76.0" text="N_Disc" />
+                    <TableColumn fx:id="joinTimeColumn" prefWidth="96.0" text="Join Time" />
+                    <TableColumn fx:id="commandColumn" prefWidth="82.0" text="Command" />
+                    <TableColumn fx:id="visibilityColumn" prefWidth="98.0" text="Visibility" visible="false" />
+                     <TableColumn fx:id="fileColumn" prefWidth="98.0" text="fileList" />
+                    
+                    <TableColumn fx:id="timeExecutionColumn" prefWidth="131" text="Time Execution" />
+                    <TableColumn fx:id="executedCorrectlyColumn" prefWidth="105.0" text="Executed Correctly" visible="false" />
+                </columns>
+            </TableView>
+        </children>
+    </VBox>
+</center>
+
+</BorderPane>

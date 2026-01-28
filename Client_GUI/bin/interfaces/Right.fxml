@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.ListView?>
+<?import javafx.scene.image.Image?>
+<?import javafx.scene.image.ImageView?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.shape.Line?>
+<?import javafx.scene.text.Font?>
+
+<HBox onMouseClicked="#selectNothing" xmlns="http://javafx.com/javafx/22" xmlns:fx="http://javafx.com/fxml/1" fx:controller="controller.Right">
+   <children>
+      <Line endY="549.0" stroke="WHITE" />
+      <VBox id="root" prefHeight="550.0" prefWidth="400.0">
+         <children>
+            <HBox alignment="CENTER_LEFT" prefHeight="80.0" spacing="20.0">
+               <children>
+                  <VBox alignment="CENTER_LEFT" prefWidth="500.0">
+                     <children>
+                        <Label alignment="CENTER" prefWidth="120.0" text="Last Refreash" textFill="WHITE">
+                           <font>
+                              <Font name="System Bold" size="16.0" />
+                           </font>
+                        </Label>
+                        <Label fx:id="timeLabel" alignment="CENTER" prefWidth="120.0" text="XX:XX:XX" textFill="WHITE">
+                           <font>
+                              <Font name="System Bold" size="16.0" />
+                           </font>
+                        </Label>
+                     </children>
+                     <HBox.margin>
+                        <Insets left="10.0" />
+                     </HBox.margin>
+                  </VBox>
+                  <Button mnemonicParsing="false" onAction="#onRefreashClick" prefHeight="60.0" prefWidth="60.0">
+                     <graphic>
+                        <ImageView fitHeight="45.0" fitWidth="50.0" pickOnBounds="true" preserveRatio="true">
+                           <image>
+                              <Image url="@../image/refreash.png" />
+                           </image>
+                        </ImageView>
+                     </graphic></Button>
+               </children>
+            </HBox>
+            <ListView fx:id="filesListView" prefHeight="360.0">
+               <VBox.margin>
+                  <Insets />
+               </VBox.margin>
+            </ListView>
+            <HBox alignment="CENTER_RIGHT" prefHeight="100.0" spacing="20.0">
+               <children>
+                  <Button mnemonicParsing="false" onAction="#onVisibleClick" prefHeight="60.0" prefWidth="60.0">
+                     <graphic>
+                        <ImageView fitHeight="45.0" fitWidth="50.0" pickOnBounds="true" preserveRatio="true">
+                           <image>
+                              <Image url="@../image/public.png" />
+                           </image>
+                        </ImageView>
+                     </graphic></Button>
+                  <Button mnemonicParsing="false" onAction="#onDeleteClick" prefHeight="60.0" prefWidth="60.0">
+                     <HBox.margin>
+                        <Insets />
+                     </HBox.margin>
+                     <graphic>
+                        <ImageView fitHeight="45.0" fitWidth="50.0" pickOnBounds="true" preserveRatio="true">
+                           <image>
+                              <Image url="@../image/trash.png" />
+                           </image>
+                        </ImageView>
+                     </graphic>
+                  </Button>
+               </children>
+               <padding>
+                  <Insets right="10.0" />
+               </padding>
+            </HBox>
+         </children>
+         <padding>
+            <Insets left="10.0" right="10.0" top="10.0" />
+         </padding>
+      </VBox>
+   </children>
+</HBox>

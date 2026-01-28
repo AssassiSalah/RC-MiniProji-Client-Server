@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.text.Font?>
+
+<VBox prefHeight="550.0" prefWidth="650.0" xmlns="http://javafx.com/javafx/22" xmlns:fx="http://javafx.com/fxml/1" fx:controller="controller.Home">
+   <children>
+      <Label alignment="CENTER" prefHeight="60.0" prefWidth="610.0" text="Home" textFill="#fcfcfc">
+         <font>
+            <Font name="System Bold" size="50.0" />
+         </font>
+      </Label>
+      <Label fx:id="textAreaDisplay" alignment="CENTER" prefHeight="379.0" prefWidth="610.0" text="gfgbhgfhgfh" textFill="WHITE">
+         <font>
+            <Font size="32.0" />
+         </font>
+      </Label>
+   </children>
+   <padding>
+      <Insets left="20.0" right="20.0" top="40.0" />
+   </padding>
+</VBox>

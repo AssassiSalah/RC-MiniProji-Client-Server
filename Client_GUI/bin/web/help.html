@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html>
+<title>help</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
+<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.10.1/font/bootstrap-icons.min.css">
+<link rel="icon" type="image/svg+xml" href="patch-question-fill.svg">
+
+<style>
+  .mySlidesDownload, .mySlidesUpload {display:none}
+  body {
+      background-color: #ffffff;
+      color: #000000;
+      transition: background-color 0.3s, color 0.3s;
+    }
+
+    .navbar {
+      background-color: #f8f9fa;
+      transition: background-color 0.3s;
+    }
+
+    /* Dark Mode Styles */
+    body.dark-mode {
+      background-color: #121212;
+      color: #ffffff;
+    }
+
+    .navbar.dark-mode {
+      background-color: #333333;
+    }
+
+    /* Icon button for Night Mode */
+    .night-mode-btn {
+      margin-left: auto;
+      margin-right: 20px;
+      cursor: pointer;
+      font-size: 1.5rem;
+      color: #000;
+      background: none;
+      border: none;
+    }
+
+    .night-mode-btn.dark-mode {
+      color: #fff;
+    }
+    .w3-button {
+      background-color: #4CAF50; /* Default green color */
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      font-size: 16px;
+      cursor: pointer;
+      border-radius: 5px;
+      transition: background-color 0.3s ease, transform 0.2s ease;
+    }
+    .w3-content {
+      max-width: 800px;
+      position: relative;
+      margin: auto;
+    }
+
+    .mySlidesDownload {
+      width: 300px;  /* Fixed width for all images */
+      height: 400px; /* Fixed height for all images */
+      object-fit: cover; /* Ensure the image is cropped to fit the fixed dimensions */
+    }
+    .mySlidesUpload {
+      width: 300px;  /* Fixed width for all images */
+      height: 400px; /* Fixed height for all images */
+      object-fit: cover; /* Ensure the image is cropped to fit the fixed dimensions */
+    }
+
+    /* Hover effect */
+    .w3-button:hover {
+      background-color: #45a049; /* Darker green on hover */
+      transform: scale(1.1); /* Slight zoom on hover */
+    }
+
+    /* Active button effect */
+    .w3-button:active {
+      background-color: #388e3c; /* Even darker green when clicked */
+    }
+
+    /* Custom color for the Next button */
+    .next-btn {
+      background-color: #007bff; /* Blue color */
+    }
+
+    .next-btn:hover {
+      background-color: #0056b3; /* Darker blue on hover */
+    }
+
+    .next-btn:active {
+      background-color: #003d7a; /* Even darker blue when clicked */
+    }
+
+    /* Custom color for the Prev button */
+    .prev-btn {
+      background-color: #f44336; /* Red color */
+    }
+
+    .prev-btn:hover {
+      background-color: #e53935; /* Darker red on hover */
+    }
+
+    .prev-btn:active {
+      background-color: #d32f2f; /* Even darker red when clicked */
+    }
+    footer {
+        margin-top: 10px;
+      background-color: #222; /* Dark background */
+      color: #fff; /* White text */
+      padding: 20px 0;
+      text-align: center;
+    }
+    .footer-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: center;
+    }
+    .footer-container .social-icons {
+      margin: 10px;
+    }
+    .social-icons a {
+      color: #fff; /* Icon color */
+      font-size: 1.5rem;
+      margin: 0 10px;
+      text-decoration: none;
+      transition: color 0.3s ease;
+    }
+    .social-icons a:hover {
+      color: #ff4500; /* Hover effect color */
+    }
+    .footer-text {
+      margin-top: 10px;
+      font-size: 0.9rem;
+    }
+    .nav-item.active {
+        border-bottom: 3px solid #0d6efd; /* Blue line under the active item */
+  padding-bottom: 2px; /* Adjust spacing between text and the line */
+
+}
+</style>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+        <a class="navbar-brand" href="#"><i class="bi bi-database-fill"></i></a> <!-- Database Icon -->
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarSupportedContent">
+          <ul class="navbar-nav mr-auto">
+            <li class="nav-item active">
+              <a class="nav-link" href="help.html">Help <span class="sr-only">(current)</span></a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="about.html">About</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link " href="#">Documentation</a>
+            </li>
+          </ul>
+        </div>
+        <span class="night-mode-btn" onclick="toggleNightMode()" id="nightModeIcon">
+            <i class="bi bi-moon"></i> <!-- Moon icon for night mode -->
+          </span>
+        </br>
+          <a class="navbar-brand" href="#">
+            <img src="image1.jpg" alt="Logo" style="width: 40px; height:auto;"> <!-- Replace with your logo -->
+          </a>
+        </div>
+      </nav>
+
+<!-- How to download from the server -->
+<div class="w3-container">
+    <h2 style="font-family: 'Arial', sans-serif; font-size: 3rem; text-align: center; text-shadow: 3px 3px 4px rgba(0, 0, 0, 0.3);">How to download from the server:</h2>
+    <p>In this section, you will learn the steps to download files from the server. Use the navigation buttons below to go through the slideshow. Each slide will explain a different step involved in the download process. Follow the instructions to ensure you can successfully download the necessary files.</p> 
+</div>
+
+<!-- Download Slideshow -->
+<div class="w3-content" style="max-width:800px">
+  <img class="mySlidesDownload" src="image1.jpg" style="width:100%">
+  <img class="mySlidesDownload" src="wallpaperflare.com_wallpaper.jpg" style="width:100%">
+  <img class="mySlidesDownload" src="image1.jpg" style="width:100%">
+</div>
+<div class="w3-center">
+    <div class="w3-section">
+      <!-- Custom Previous and Next buttons with new colors -->
+      <button class="w3-button prev-btn" onclick="plusDivs(-1, 'download')">❮ Prev</button>
+      <button class="w3-button next-btn" onclick="plusDivs(1, 'download')">Next ❯</button>
+    </div>
+    <button class="w3-button demoDownload" onclick="currentDiv(1, 'download')">1</button> 
+    <button class="w3-button demoDownload" onclick="currentDiv(2, 'download')">2</button> 
+    <button class="w3-button demoDownload" onclick="currentDiv(3, 'download')">3</button> 
+  </div>
+<!-- How to upload from the server -->
+<div class="w3-container">
+    <h2 style="font-family: 'Arial', sans-serif; font-size: 3rem; text-align: center; text-shadow: 3px 3px 4px rgba(0, 0, 0, 0.3);">How to upload from the server:</h2>
+    <p>In this section, you will learn how to upload files to the server. Use the controls below to navigate through the slideshow. Each slide will guide you through the steps needed for uploading your files successfully.</p>
+</div>
+
+<!-- Upload Slideshow -->
+<div class="w3-content" style="max-width:800px">
+  <img class="mySlidesUpload" src="wallpaperflare.com_wallpaper.jpg" style="width:100%">
+  <img class="mySlidesUpload" src="image1.jpg" style="width:100%">
+  <img class="mySlidesUpload" src="wallpaperflare.com_wallpaper.jpg" style="width:100%">
+</div>
+
+<div class="w3-center">
+  <div class="w3-section">
+    <button class="w3-button prev-btn" onclick="plusDivs(-1, 'upload')">❮ Prev</button>
+    <button class="w3-button next-btn" onclick="plusDivs(1, 'upload')">Next ❯</button>
+  </div>
+  <button class="w3-button demoUpload" onclick="currentDiv(1, 'upload')">1</button> 
+  <button class="w3-button demoUpload" onclick="currentDiv(2, 'upload')">2</button> 
+  <button class="w3-button demoUpload" onclick="currentDiv(3, 'upload')">3</button> 
+</div>
+
+<footer>
+    <div class="footer-container">
+      <div class="social-icons">
+        <a href="https://www.facebook.com/mouataznouar" target="_blank" title="Facebook">
+            <i class="bi bi-facebook"></i>
+            mouataznouar
+        </a>
+        <a href="https://www.instagram.com/mouataz1237" target="_blank" title="Instagram">
+            <i class="bi bi-instagram"></i>
+            mouataz1237
+        </a>
+        <a href="https://twitter.com/mouataznouar" target="_blank" title="Twitter">
+            <i class="bi bi-twitter"></i>
+        mouataznouar
+        </a>
+        <a href="https://www.tiktok.com/@yourusername" target="_blank" title="TikTok">
+            <i class="bi bi-tiktok"></i>
+            mouataznouar
+        </a>
+        <a href="mailto:rcminiproject@gmail.com" target="_blank" title="Email">
+            <i class="bi bi-google"></i>
+            MiniProject Rc
+        </a>
+      </div>
+      <div class="footer-text">
+        © 2024 Wave Flow. All Rights Reserved.
+      </div>
+    </div>
+  </footer>
+  
+
+
+<script>
+var slideIndexDownload = 1;
+var slideIndexUpload = 1;
+
+// Show the first slide for each section
+showDivs(slideIndexDownload, 'download');
+showDivs(slideIndexUpload, 'upload');
+
+// Next/previous controls
+function plusDivs(n, section) {
+  if (section === 'download') {
+    showDivs(slideIndexDownload += n, 'download');
+  } else {
+    showDivs(slideIndexUpload += n, 'upload');
+  }
+}
+
+// Set current slide
+function currentDiv(n, section) {
+  if (section === 'download') {
+    showDivs(slideIndexDownload = n, 'download');
+  } else {
+    showDivs(slideIndexUpload = n, 'upload');
+  }
+}
+
+// Display slides for the appropriate section
+function showDivs(n, section) {
+  var i;
+  var x, dots;
+  
+  if (section === 'download') {
+    x = document.getElementsByClassName("mySlidesDownload");
+    dots = document.getElementsByClassName("demoDownload");
+  } else {
+    x = document.getElementsByClassName("mySlidesUpload");
+    dots = document.getElementsByClassName("demoUpload");
+  }
+  
+  if (section === 'download') {
+    if (n > x.length) { slideIndexDownload = 1; }    
+    if (n < 1) { slideIndexDownload = x.length; }
+  } else {
+    if (n > x.length) { slideIndexUpload = 1; }    
+    if (n < 1) { slideIndexUpload = x.length; }
+  }
+  
+  for (i = 0; i < x.length; i++) {
+    x[i].style.display = "none";  
+  }
+  for (i = 0; i < dots.length; i++) {
+    dots[i].className = dots[i].className.replace(" w3-red", "");
+  }
+  
+  if (section === 'download') {
+    x[slideIndexDownload-1].style.display = "block";  
+    dots[slideIndexDownload-1].className += " w3-red";
+  } else {
+    x[slideIndexUpload-1].style.display = "block";  
+    dots[slideIndexUpload-1].className += " w3-red";
+  }
+}
+</script>
+<script>
+    function toggleNightMode() {
+      // Toggle the 'dark-mode' class on the body and navbar
+      document.body.classList.toggle('dark-mode');
+      document.querySelector('.navbar').classList.toggle('dark-mode');
+      
+      // Toggle the icon
+      const icon = document.getElementById('nightModeIcon').querySelector('i');
+      if (document.body.classList.contains('dark-mode')) {
+        icon.classList.remove('bi-sun'); // Remove sun icon
+        icon.classList.add('bi-moon'); // Add moon icon for dark mode
+      } else {
+        icon.classList.remove('bi-moon'); // Remove moon icon
+        icon.classList.add('bi-sun'); // Add sun icon for light mode
+      }
+    }
+  </script>
+
+<!-- Add jQuery -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<!-- Add Popper.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/2.11.6/umd/popper.min.js"></script>
+<!-- Add Bootstrap JS -->
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+</body>
+</html>

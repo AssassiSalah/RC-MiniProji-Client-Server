@@ -1,0 +1,7 @@
+/* JavaFX CSS - Leave this comment until you have at least create one rule which uses -fx-Property */
+
+/* Base button style */
+.button {
+    -fx-background-radius: 15px;
+    -fx-font-size: 14px;
+}

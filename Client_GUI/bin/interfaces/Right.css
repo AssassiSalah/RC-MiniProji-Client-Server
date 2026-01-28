@@ -1,0 +1,38 @@
+/* JavaFX CSS - Leave this comment until you have at least create one rule which uses -fx-Property */
+
+/* Base button style */
+/* Style for the ListView */
+#filesListView {
+    -fx-background-color: #2b2b2b; /* Background color */
+    -fx-text-fill: white;          /* Text color */
+    -fx-border-color: #5a5a5a;     /* Border color */
+    -fx-border-width: 1px;         /* Border width */
+    -fx-font-size: 14px;           /* Font size */
+    -fx-control-inner-background: #3c3c3c; /* Inner background */
+    -fx-selection-bar: #4681f1;    /* Background color of selected item */
+    -fx-selection-bar-text: white; /* Text color of selected item */
+}
+
+.button {
+    -fx-font-weight: bold;
+}
+
+/* Normal state */
+.button {
+    -fx-background-color: #4681f1; /* Replace with AppConst.Normal_COLOR */
+    -fx-text-fill: white;
+}
+
+.button:hover {
+    -fx-background-color: #7AAEF9; /* Lighter shade for hover */
+    -fx-border-color: #276B47;     /* Outline color */
+}
+
+.button:pressed {
+    -fx-background-color: #25478a; /* Darker shade for pressed */
+}
+
+
+.label {
+    -fx-font-size: 18px;
+}

@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.ChoiceBox?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.text.Font?>
+
+<VBox alignment="TOP_CENTER" maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="550.0" prefWidth="650.0" spacing="20.0" style="-fx-background-color: #2E2E2E;" xmlns="http://javafx.com/javafx/22" xmlns:fx="http://javafx.com/fxml/1" fx:controller="controller.HistoryController">
+   <children>
+      <Label alignment="CENTER" prefHeight="73.0" prefWidth="610.0" style="-fx-text-fill: white;" text="History">
+         <font>
+            <Font name="System Bold" size="50.0" />
+         </font>
+         <VBox.margin>
+            <Insets top="20.0" />
+         </VBox.margin>
+      </Label>
+      <HBox spacing="10.0">
+         <children>
+            <TextField fx:id="searchField" prefHeight="40.0" prefWidth="500.0" promptText="Search Bar ..." />
+            <ChoiceBox fx:id="filterChoiceBox" prefHeight="40.0" prefWidth="120.0" />
+         </children>
+      </HBox>
+      <VBox alignment="TOP_CENTER" spacing="20.0">
+         <children>
+            <TableView fx:id="tableView" prefHeight="350.0" prefWidth="200.0">
+              <columns>
+                <TableColumn fx:id="commandColumn" prefWidth="93.0" text="Command" />
+                <TableColumn fx:id="fileNameColumn" prefWidth="282.0" text="File Name" />
+                <TableColumn fx:id="visibilityColumn" minWidth="0.0" prefWidth="93.0" text="Visibility" />
+                <TableColumn fx:id="timeColumn" minWidth="3.0" prefWidth="151.0" text="Time" />
+              </columns>
+            </TableView>
+         </children>
+      </VBox>
+   </children>
+   <padding>
+      <Insets bottom="20.0" left="10.0" right="10.0" />
+   </padding>
+</VBox>
