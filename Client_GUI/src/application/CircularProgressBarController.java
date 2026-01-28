@@ -6,36 +6,18 @@ import javafx.scene.control.ProgressIndicator;
 
 public class CircularProgressBarController {
 
-    @FXML
-    private ProgressIndicator circularProgressBar;
-    @FXML
-    private Label percentageLabel;
-    @FXML
-    private Label currentSizeLabel, totalSizeLabel, remainTimeLabel, currentTimeLabel, speedTransferLabel;
-    double progress = 0;
+    @FXML private ProgressIndicator circularProgressBar;
+    @FXML private Label percentageLabel;
+    @FXML private Label currentSizeLabel, totalSizeLabel, remainTimeLabel, currentTimeLabel, speedTransferLabel;
+    double progress=0;
     private double totalSize = 0; // Total file size in KB
-    private long startTime = 0; // Start time in milliseconds
+    private long startTime=0; // Start time in milliseconds
     // private long lastUpdateTime; // Last time progress was updated
     private double lastSize; // File size at the last update
 
-    public void initialize() {
-        // Initialize progress bar and labels
-        percentageLabel.setText("0%");
-        currentSizeLabel.setText("0 KB");
-        totalSizeLabel.setText("0 KB");
-        remainTimeLabel.setText("N/A");
-        currentTimeLabel.setText("0 sec");
-        speedTransferLabel.setText("0 KB/sec");
-
-        // Record start time
-        // startTime = System.currentTimeMillis();
-        // lastUpdateTime = startTime;
-        // lastSize = currentSize;
-    }
-
-    void start(double totalSize_) {
+    public void initialize(double totalSize_) {
         System.out.println("Start: ");
-        totalSize = totalSize_ / 1024;
+        totalSize = totalSize_/1024;
         startTime = System.currentTimeMillis();
         lastSize = 0;
         circularProgressBar.setProgress(0.0);
@@ -60,7 +42,7 @@ public class CircularProgressBarController {
         progress = currentSize / totalSize;
         circularProgressBar.setProgress(progress);
         percentageLabel.setText(String.format("%.0f%%", progress * 100));
-        long deffrent = 40960;
+        long deffrent =40960;
         long currentTime = System.currentTimeMillis();
         // Calculate transfer speed (currentSize / timeElapsed)
         double currentSpeed = (deffrent) / ((totalSize) / 10000.0); // KB/sec
@@ -85,5 +67,6 @@ public class CircularProgressBarController {
             remainTimeLabel.setText("0 sec");
         }
     }
+
 
 }

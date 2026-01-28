@@ -1,10 +1,26 @@
 package server;
 
+/**
+ * A utility class to store constants used throughout the application.
+ * This includes API keys and commonly used file paths.
+ */
 public class AppConst {
-	public static String API_KEY_SALAH = "d8a5989672eccfc593947bd43427237bffc669216da12e349dfd86b76d6ce5e1";
-	public static String API_KEY_MOUTAZ = "e969ad249616db21a38e88c6fb57105a8399b94b5561c71b69682d3bb03401be"; 
-	
-	public static final String PATH_PROJECT = System.getProperty("user.home") + "/RC_miniproj";
-	
-	public static final String PATH_SERVER = PATH_PROJECT + "/Server_storage";
+
+    /**
+     * API key for accessing external services like VirusTotal.
+     * Replace "API_Code" with your actual API key.
+     */
+    public static String API_KEY_SALAH = "API_Code";
+
+    /**
+     * The base path for the project's storage directory.
+     * Defaults to a folder named "RC_miniproj" in the user's home directory.
+     */
+    public static final String PATH_PROJECT = System.getProperty("user.home") + "/RC_miniproj";
+
+    /**
+     * The directory for server-side storage within the project.
+     * Defaults to a folder named "Server_storage" inside the project directory.
+     */
+    public static final String PATH_SERVER = PATH_PROJECT + "/Server_storage";
 }

@@ -129,13 +129,15 @@ public class Right {
     }
     
     @FXML
-    private void selectMyFiles() {
+    public void selectMyFiles() {
+    	myFilesButton.setSelected(true);
     	sharedFilesButton.setSelected(false);
     	onRefreashClick();
     }
     
     @FXML
-    private void selectSharedFiles() {
+    public void selectSharedFiles() {
+    	sharedFilesButton.setSelected(true);
     	myFilesButton.setSelected(false);
     	onRefreashClick();
     }

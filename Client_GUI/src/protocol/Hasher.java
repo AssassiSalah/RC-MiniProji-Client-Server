@@ -90,7 +90,7 @@ public class Hasher {
 	 * @param bytes the byte array to convert
 	 * @return the hexadecimal representation of the byte array
 	 */
-	private static String bytesToHex(byte[] bytes) {
+	static String bytesToHex(byte[] bytes) {
 	    StringBuilder hexString = new StringBuilder();
 	    for (byte b : bytes) {
 	        hexString.append(String.format("%02x", b));
@@ -109,6 +109,26 @@ public class Hasher {
         return computeHash(data, "SHA-256");
     }
     
+ // Method to compute SHA-256 hash for a given byte array, starting from offset and reading length bytes
+    public static String computeSHA256(byte[] buffer, int offset, int length) {
+        try {
+            // Create a MessageDigest instance for SHA-256
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+
+            // Update the digest with the specified portion of the byte array
+            digest.update(buffer, offset, length);
+
+            // Get the hash as a byte array
+            byte[] hashBytes = digest.digest();
+
+            // Convert the byte array to a hexadecimal string
+            return bytesToHex(hashBytes);
+
+        } catch (NoSuchAlgorithmException e) {
+            // Handle error if SHA-256 algorithm is not available (should never happen)
+            throw new RuntimeException("SHA-256 algorithm not found", e);
+        }
+    }
     
 
 }

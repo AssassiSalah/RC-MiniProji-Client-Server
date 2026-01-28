@@ -8,376 +8,351 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
 
-/*
- * CHECK used for method that i didn't check they results [Low]
- * COMPLITE used for method that didn't finish [Normal]
- * FIXME used for method have an error [HIGH]
- * HACK used for temporary solution [Normal]
- * REPLACE used for method i must replace [Low] 
- * TODO used for other problem [Normal]
+/**
+ * AuthenticatedFileServer class handles multiple client connections with user
+ * authentication, file upload/download functionality, and file management. The
+ * server allows clients to log in, register, upload files, download files, list
+ * files, and collaborate by searching for files on other users' servers.
  */
-
 public class AuthenticatedFileServer {
-	
-	private static final String PATH_PROJECT = System.getProperty("user.home") + "/RC_miniproj";
-	
-	private static final String PATH_SERVER = PATH_PROJECT + "/Server_storage";
-    
-    // maximum number of concurrent clients the server can handle.
-    private static final int MAX_CLIENTS = 5;
-    
-    private static final int TIME_OUT = 300000; // 5 Minute
-    
-    private int port;
-        
-    private Map<String, String> users;
-        
-    public AuthenticatedFileServer(int port) {
-    	this.port = port;
-    	
-    	users = FileManager.getUsers();//REPLACE with DB
-    	
-    	FileManager.createIfNotExist(PATH_PROJECT);
-    	FileManager.createIfNotExist(PATH_SERVER);
+
+	private static final int MAX_CLIENTS = 10; // Maximum number of concurrent clients
+	private static final int TIME_OUT = 300000; // 5 minutes timeout
+
+	private int port;
+	private Map<String, String> users;
+
+	/**
+	 * Constructs an AuthenticatedFileServer instance.
+	 * 
+	 * @param port the port on which the server will listen for incoming connections
+	 */
+	public AuthenticatedFileServer(int port) {
+		this.port = port;
+		users = FileManagerServer.getUsers(); // Replace with DB in production
+		FileManagerServer.createIfNotExist(AppConst.PATH_PROJECT);
+		FileManagerServer.createIfNotExist(AppConst.PATH_SERVER);
 	}
-    
-    public void start() {
-    	// created with a fixed-size thread
-        ExecutorService executorService = Executors.newFixedThreadPool(MAX_CLIENTS);
 
-        try (ServerSocket serverSocket = new ServerSocket(port)) {
-            System.out.println("Server is running on port " + port);
+	/**
+	 * Starts the file server, accepting client connections and processing commands.
+	 */
+	public void start() {
+		// Create an ExecutorService with a fixed thread pool for handling multiple
+		// clients
+		ExecutorService executorService = Executors.newFixedThreadPool(MAX_CLIENTS);
 
-            while (true) {
-                try {
-                    Socket clientSocket = serverSocket.accept();
-                    clientSocket.setSoTimeout(TIME_OUT); // Set timeout to 5000 milliseconds (5 seconds)
-                    System.out.println("New Client Is Here IP " + clientSocket.getInetAddress());
-                    executorService.submit(() -> handleClient(clientSocket));
-                } catch (IOException e) {
-                    System.err.println("I/O error occurred while accepting a connection: " + e.getMessage());
-                    System.err.println("Cause: Possible network or I/O issues.");
-                } catch (RejectedExecutionException e) {
-                    System.err.println("Task could not be executed: " + e.getMessage());
-                    System.err.println("Cause: Executor service is not accepting tasks.");
-                }
-            }
-        } catch (IOException e) {
-            System.err.println("I/O error occurred while setting up the server socket: " + e.getMessage());
-            System.err.println("Cause: Network issues or unable to bind to the specified port.");
-        } catch (SecurityException e) {
-            System.err.println("Security error: " + e.getMessage());
-            System.err.println("Cause: Insufficient permissions to bind to the specified port.");
-        } catch (IllegalArgumentException e) {
-            System.err.println("Invalid port number: " + port);
-            System.err.println("Cause: Port numbers must be in the range 0-65535.");
-        } finally {
-            // Ensure that executor service is properly shut down
-            if (executorService != null && !executorService.isShutdown()) {
-                executorService.shutdown();
-                System.out.println("Executor service is shut down.");
-            }
-        }
-    }
+		try (ServerSocket serverSocket = new ServerSocket(port)) {
+			System.out.println("Server is running on port " + port);
 
-    private void handleClient(Socket clientSocket) {
-        try {
-        	BufferedReader reader = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-            PrintWriter writer = new PrintWriter(clientSocket.getOutputStream(), true);
-        	FileManager fileManager = new FileManager(new DataInputStream(clientSocket.getInputStream()), new DataOutputStream(clientSocket.getOutputStream()),reader,  writer);
-            		
-        	String username = ""; // initial with empty name
-        	
-        	File userDir = null;
+			// Accept client connections indefinitely
+			while (true) {
+				try {
+					// Accept client connection
+					Socket clientSocket = serverSocket.accept();
+					clientSocket.setSoTimeout(TIME_OUT); // Set a timeout of 5 minutes
+					System.out.println("New Client Is Here IP " + clientSocket.getInetAddress());
+					executorService.submit(() -> handleClient(clientSocket)); // Handle client requests
+				} catch (IOException e) {
+					// Handle exceptions when accepting client connections
+					System.err.println("I/O error occurred while accepting a connection: " + e.getMessage());
+				} catch (RejectedExecutionException e) {
+					// Handle task rejection when thread pool is full
+					System.err.println("Task could not be executed: " + e.getMessage());
+				}
+			}
+		} catch (IOException e) {
+			// Handle errors during server socket setup
+			System.err.println("I/O error occurred while setting up the server socket: " + e.getMessage());
+		} finally {
+			// Ensure executor service is properly shut down
+			if (executorService != null && !executorService.isShutdown()) {
+				executorService.shutdown();
+				System.out.println("Executor service is shut down.");
+			}
+		}
+	}
 
-            // Process client commands
-            while (true) {
-                String command = reader.readLine();
-                System.out.println("Client : " + username + " Choose : " + command);
-                switch (command) {
-                	case "LOG_IN":
-                		username = authenticate(reader, writer);
-                    	
-                        if (username.isEmpty()) {
-                            // exit(clientSocket);
-                        } else {
-                        	userDir = new File(PATH_SERVER, username);
-                        }
+	/**
+	 * Handles the communication with a connected client. Processes commands such as
+	 * log in, register, upload, download, etc.
+	 * 
+	 * @param clientSocket the socket representing the client connection
+	 */
+	private void handleClient(Socket clientSocket) {
+		try (BufferedReader reader = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+				PrintWriter writer = new PrintWriter(clientSocket.getOutputStream(), true)) {
 
-                        break;
-                	case "REGISTER":
-                			String newUsername = registerNewClient(reader, writer);
-                			if(!newUsername.isEmpty()) {
-                				File newUserDir = new File(PATH_SERVER, newUsername);
-                				
-                				if (!newUserDir.exists()) 
-                					newUserDir.mkdirs();
-                			}
-                		break;
-                    case "UPLOAD":
-                    	String fileName = reader.readLine();
-                        fileManager.receiveFile(userDir, fileName);
-                        break;
-                    case "LIST_FILES_USER":
-                        listFilesUser(userDir, writer);
-                        break;
-                    case "LIST_FILES_SHARED":
-                        listFilesShared(writer);
-                        break;
-                    case "DOWNLOAD":
-                    	String requestedFileName_DOWNLOAD = reader.readLine();
-                        fileManager.sendFile(userDir, requestedFileName_DOWNLOAD);                      
-                        break;
-                    case "ADVANCE_DOWNLOAD":
-                    	String requestedFileName_Search = reader.readLine();
-                        String whoHaveFile = fileManager.searchInCollaboration(requestedFileName_Search);
-                        
-                        if(!whoHaveFile.isEmpty())
-                        	fileManager.sendFile(new File(PATH_SERVER, whoHaveFile), requestedFileName_Search);
-                        
-                        break;
-                    case "REMOVE":
-                    	String requestedFileName = reader.readLine();
-                        fileManager.removeFile(userDir, requestedFileName);                      
-                        break;
-                    case "EXIT":
-                    	exit(clientSocket, reader, writer);
-                        return;
-                    default:
-                        writer.println("Unknown command");
-                }
-            }
-        } catch (FileNotFoundException e) { //TODO
-            System.err.println("File not found: " + e.getMessage());
-            e.printStackTrace();
-        } catch (IOException e) {
-            System.err.println("I/O error occurred while handling client communication: " + e.getMessage());
-            //e.printStackTrace();
-        } catch (NullPointerException e) {
-            System.err.println("Null pointer exception encountered: " + e.getMessage());
-            //e.printStackTrace();
-        } catch (SecurityException e) {
-            System.err.println("Security exception: " + e.getMessage());
-            e.printStackTrace();
-        } catch (IllegalArgumentException e) {
-            System.err.println("Invalid argument error: " + e.getMessage());
-            e.printStackTrace();
-        } catch (Exception e) {
-            System.err.println("Unexpected error occurred: " + e.getMessage());
-            e.printStackTrace();
-        } finally {
-             exit(clientSocket);
-        }
-    }
+			FileManagerServer fileManager = new FileManagerServer(new DataInputStream(clientSocket.getInputStream()),
+					new DataOutputStream(clientSocket.getOutputStream()), reader, writer);
+			String username = ""; // Initial empty username
+			File userDir = null; // Directory for the user files
 
-
-
-	private String authenticate(BufferedReader reader, PrintWriter writer) {
-    	// Authenticate user
-		
-		// Validate the username and password (basic validation)
-        String username = null;
-        String password = null;
-        
-		try {
-            username = reader.readLine();  // Reading username
-            password = reader.readLine();  // Reading password
-        } catch (EOFException e) {
-            System.err.println("Error: Reached the end of the stream unexpectedly.");
-            System.err.println("Cause: The client or server closed the connection prematurely.");
-            
-	        writer.println("Authentication Failed");
-	        return "";  // Returning false since data could not be read
-        } catch (IOException e) {
-            System.err.println("I/O error occurred while reading data.");
-            System.err.println("Cause: General input/output issues, like network failure or data corruption.");
-            
-	        writer.println("Authentication Failed");
-	        return "";  // Returning false in case of I/O error
-        } catch (NullPointerException e) {
-            System.err.println("Error: DataInputStream is not initialized.");
-            System.err.println("Cause: The DataInputStream object is null.");
-            
-	        writer.println("Authentication Failed");
-            return "";  // Returning false as the stream is null
-        } catch (Exception e) {
-            System.err.println("Unexpected error occurred: " + e.getMessage());
-		    System.err.println("Cause: Unknown.");
-            // e.printStackTrace();  // Log the stack trace for unexpected errors
-	        writer.println("Authentication Failed");
-            return "";  // Returning false for unexpected errors
-        }
-        
-		try {
-		    if (users.containsKey(username) && users.get(username).equals(password)) {
-		        System.out.println("Authentication Successful. Welcome: " + username);
-		        writer.println("Authentication Successful. Welcome: " + username);
-		        return username;
-		    } else {
-		        writer.println("Authentication Failed");
-		        return "";
-		    }
+			// Process client commands indefinitely
+			while (true) {
+				String command = reader.readLine(); // Read client command
+				System.out.println("Client: " + username + " Command: " + command);
+				switch (command) {
+				case "LOG_IN":
+					// Log in the user and authenticate
+					username = authenticate(reader, writer);
+					if (username.isEmpty()) {
+						// If authentication fails, handle exit (if necessary)
+					} else {
+						userDir = new File(AppConst.PATH_SERVER, username); // Set user directory
+					}
+					break;
+				case "REGISTER":
+					// Register a new client
+					String newUsername = registerNewClient(reader, writer);
+					if (!newUsername.isEmpty()) {
+						File newUserDir = new File(AppConst.PATH_SERVER, newUsername);
+						if (!newUserDir.exists())
+							newUserDir.mkdirs(); // Create user directory
+					}
+					break;
+				case "UPLOAD":
+					// Handle file upload
+					String fileName = reader.readLine();
+					fileManager.receiveFile(userDir, fileName);
+					break;
+				case "LIST_FILES_USER":
+					// List files of the user
+					listFilesUser(userDir, writer);
+					break;
+				case "LIST_FILES_SHARED":
+					// List shared files
+					listFilesShared(writer);
+					break;
+				case "DOWNLOAD":
+					// Handle file download
+					String requestedFileName_DOWNLOAD = reader.readLine();
+					System.out.println("File Name : " + requestedFileName_DOWNLOAD);
+					fileManager.sendFile(userDir, requestedFileName_DOWNLOAD);
+					break;
+				case "ADVANCE_DOWNLOAD":
+					// Handle advanced file search and download
+					String requestedFileName_Search = reader.readLine();
+					String whoHaveFile = fileManager.searchInCollaboration(requestedFileName_Search);
+					if (!whoHaveFile.isEmpty())
+						fileManager.sendFile(new File(AppConst.PATH_SERVER, whoHaveFile), requestedFileName_Search);
+					break;
+				case "REMOVE":
+					// Handle file removal
+					String requestedFileName = reader.readLine();
+					fileManager.removeFile(userDir, requestedFileName);
+					break;
+				case "EXIT":
+					// Exit the client connection
+					exit(clientSocket, reader, writer);
+					return;
+				default:
+					writer.println("Unknown command");
+				}
+			}
+		} catch (IOException e) {
+			System.err.println("I/O error occurred while handling client communication: " + e.getMessage());
 		} catch (Exception e) {
-		    System.err.println("Unexpected error occurred: " + e.getMessage());
-		    System.err.println("Cause: Unknown.");
-		    // e.printStackTrace();  // Log the stack trace for unexpected errors
-		    
-		    writer.println("Authentication Failed");
+			System.err.println("Unexpected error occurred: " + e.getMessage());
+		} finally {
+			exit(clientSocket); // Ensure client is disconnected properly
+		}
+	}
+
+	/**
+	 * Authenticates the user with a username and password.
+	 * 
+	 * @param reader BufferedReader to read client input
+	 * @param writer PrintWriter to send responses to the client
+	 * @return the username if authentication is successful, empty string otherwise
+	 */
+	private String authenticate(BufferedReader reader, PrintWriter writer) {
+		String username = null;
+		String password = null;
+
+		try {
+			// Read username and password from client
+			username = reader.readLine();
+			password = reader.readLine();
+		} catch (IOException e) {
+			System.err.println("I/O error occurred while reading data.");
+			writer.println("Authentication Failed");
 			return "";
 		}
-    }
-	
-	 // Method to register a new client account
-    private String registerNewClient(BufferedReader reader, PrintWriter writer) {
-        // Validate the username and password (basic validation)
-        String username = null;
-        String password = null;
 
-        try {
-            username = reader.readLine();  // Reading username
-            password = reader.readLine();  // Reading password
-        } catch (EOFException e) {
-            System.err.println("Error: Reached the end of the stream unexpectedly.");
-            System.err.println("Cause: The client or server closed the connection prematurely.");
-            writer.println("Register Failed");
-            return "";  // Returning false since data could not be read
-        } catch (IOException e) {
-            System.err.println("I/O error occurred while reading data.");
-            System.err.println("Cause: General input/output issues, like network failure or data corruption.");
-            writer.println("Register Failed");
-            return "";  // Returning false in case of I/O error
-        } catch (NullPointerException e) {
-            System.err.println("Error: DataInputStream is not initialized.");
-            System.err.println("Cause: The DataInputStream object is null.");
-            writer.println("Register Failed");
-            return "";  // Returning false as the stream is null
-        } catch (Exception e) {
-            System.err.println("Unexpected error occurred: " + e.getMessage());
-		    System.err.println("Cause: Unknown.");
-		    // e.printStackTrace();  // Log the stack trace for unexpected errors
-		    writer.println("Register Failed");
-            return "";  // Returning false for unexpected errors
-        }
-
-        // Basic validation for username and password
-        if (username.isEmpty() || password.isEmpty()) {
-            System.out.println("Error: Username or password cannot be empty.");
-            writer.println("Register Failed");
-            return "";  // Returning false if username or password is empty
-        }
-
-        // Check if the username already exists
-        if (users.containsKey(username)) {
-            System.out.println("Error: Username already exists.");
-            writer.println("Register Failed");
-            return "";  // Returning false if username already exists
-        }
-
-        // Register the new user (assuming you have a HashMap to store users)
-        users.put(username, password);  // Store the username and password (this could be improved to hash passwords)
-        // TODO add in the database
-        System.out.println("User registered successfully.");
-        
-        writer.println("Register Success");
-        return username;  // Return true if registration is successful
-    }
-   
-    private void listFilesUser(File userDir, PrintWriter writer) {
-    	try {
-    	    File[] files = userDir.listFiles();
-    	    if (files == null || files.length == 0) {
-    	        writer.println("No files found.");
-    	    } else {
-    	        for (File file : files) {
-    	            writer.println(file.getName());
-    	        }
-    	    }
-    	    writer.println("END");
-    	} catch (SecurityException e) {
-    	    System.err.println("Error: Permission denied to access the directory or read the files.");
-    	    System.err.println("Cause: The program does not have permission to access the directory or its contents.");
-    	} catch (NullPointerException e) {
-    	    System.err.println("Error: The directory is null.");
-    	    System.err.println("Cause: The `userDir` directory object is not properly initialized.");
-    	} catch (Exception e) {
-    	    System.err.println("Unexpected error occurred: " + e.getMessage());
-		    System.err.println("Cause: Unknown.");
-		    // e.printStackTrace();  // Log the stack trace for unexpected errors
-    	}
-
-    }
-   
-    private void listFilesShared(PrintWriter writer) {
-    	try {
-            File folder = new File(AppConst.PATH_SERVER);
-            File[] files = folder.listFiles((dir, name) -> name.endsWith(".txt")); // Only .txt files
-
-            if (files != null) {
-                for (File file : files) {
-                    //System.out.println("Reading file: " + file.getName());
-                    try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
-                        String line;
-                        while ((line = reader.readLine()) != null) {
-                            writer.println(line);
-                        }
-                    }
-                }
-            }
-    	} catch (SecurityException e) {
-    	    System.err.println("Error: Permission denied to access the directory or read the files.");
-    	    System.err.println("Cause: The program does not have permission to access the directory or its contents.");
-    	} catch (NullPointerException e) {
-    	    System.err.println("Error: The directory is null.");
-    	    System.err.println("Cause: The `userDir` directory object is not properly initialized.");
-    	} catch (Exception e) {
-    	    System.err.println("Unexpected error occurred: " + e.getMessage());
-		    System.err.println("Cause: Unknown.");
-		    // e.printStackTrace();  // Log the stack trace for unexpected errors
-    	}
-	    writer.println("END");
+		// Validate user credentials
+		if (users.containsKey(username) && users.get(username).equals(password)) {
+			System.out.println("Authentication Successful. Welcome: " + username);
+			writer.println("Authentication Successful. Welcome: " + username);
+			return username;
+		} else {
+			writer.println("Authentication Failed");
+			return "";
+		}
 	}
-    
-    private void exit(Socket clientSocket, BufferedReader reader, PrintWriter writer) {
-    	System.out.println("Client Want To Disconnecting");
-    	try {
-    		// Closing streams first
-    	    reader.close();  // Close input stream
-    	    writer.close(); // Close output stream
-    	    
-    	    // Then close the socket
-    	    exit(clientSocket);
-    	} catch (IOException e) {
-    	    System.err.println("I/O error occurred while closing resources.");
-    	    System.err.println("Cause: There was an error while closing the socket or streams, possibly due to network or I/O issues.");
-    	} catch (NullPointerException e) {
-    	    System.err.println("Error: One or more resources (socket, input stream, or output stream) are not initialized.");
-    	    System.err.println("Cause: Attempting to close a null reference of the socket or streams.");
-    	} catch (Exception e) {
-    	    System.err.println("Unexpected error occurred while closing resources: " + e.getMessage());
-		    System.err.println("Cause: Unknown.");
-    	    // e.printStackTrace();  // Log the stack trace for unexpected errors
-    	}
 
-    	System.out.println("Client Disconnected Successfuly"); 
-	}
-    
-	private void exit(Socket clientSocket) {
+	// Method to register a new client account
+	// It reads the username and password from the client, validates them, and
+	// registers the client if the data is valid.
+	private String registerNewClient(BufferedReader reader, PrintWriter writer) {
+		// Validate the username and password (basic validation)
+		String username = null;
+		String password = null;
+
 		try {
-			
-			if(!clientSocket.isClosed())
-				clientSocket.close();
-			
+			// Reading username and password from the client
+			username = reader.readLine(); // Reading username
+			password = reader.readLine(); // Reading password
+		} catch (EOFException e) {
+			// Handles unexpected EOF during reading
+			System.err.println("Error: Reached the end of the stream unexpectedly.");
+			writer.println("Register Failed");
+			return ""; // Return empty string if data could not be read
 		} catch (IOException e) {
-		    System.err.println("I/O error occurred while closing the socket.");
-		    System.err.println("Cause: There was an error while closing the socket, possibly due to network or I/O issues.");
+			// Handles I/O errors during reading
+			System.err.println("I/O error occurred while reading data.");
+			writer.println("Register Failed");
+			return ""; // Return empty string in case of I/O error
 		} catch (NullPointerException e) {
-		    System.err.println("Error: The client socket is not initialized.");
-		    System.err.println("Cause: Attempting to close a null socket reference.");
+			// Handles null pointer exceptions during reading
+			System.err.println("Error: DataInputStream is not initialized.");
+			writer.println("Register Failed");
+			return ""; // Return empty string if stream is null
 		} catch (Exception e) {
-		    System.err.println("Unexpected error occurred while closing the socket: " + e.getMessage());
-		    System.err.println("Cause: Unknown.");
-		    // e.printStackTrace();  // Log the stack trace for unexpected errors
+			// Catches any unexpected exceptions
+			System.err.println("Unexpected error occurred: " + e.getMessage());
+			writer.println("Register Failed");
+			return ""; // Return empty string for unexpected errors
 		}
 
+		// Basic validation for username and password
+		if (username.isEmpty() || password.isEmpty()) {
+			// Username or password cannot be empty
+			System.out.println("Error: Username or password cannot be empty.");
+			writer.println("Register Failed");
+			return ""; // Return empty string if validation fails
+		}
+
+		// Check if the username already exists
+		if (users.containsKey(username)) {
+			// Handle case where username already exists
+			System.out.println("Error: Username already exists.");
+			writer.println("Register Failed");
+			return ""; // Return empty string if username already exists
+		}
+
+		// Register the new user (assuming you have a HashMap to store users)
+		users.put(username, password); // Store the username and password (this could be improved to hash passwords)
+		// TODO: Store in the database instead of HashMap
+		System.out.println("User registered successfully.");
+
+		writer.println("Register Success");
+		return username; // Return username if registration is successful
 	}
+
+	// Method to list the files belonging to a specific user
+	// It reads the directory of the user and sends the list of files back to the
+	// client.
+	private void listFilesUser(File userDir, PrintWriter writer) {
+		try {
+			// Retrieve the list of files in the user directory
+			File[] files = userDir.listFiles();
+			if (files == null || files.length == 0) {
+				writer.println("No files found.");
+			} else {
+				// List each file name in the directory
+				for (File file : files) {
+					writer.println(file.getName());
+				}
+			}
+			writer.println("END");
+		} catch (SecurityException e) {
+			// Handle permission errors
+			System.err.println("Error: Permission denied to access the directory or read the files.");
+		} catch (NullPointerException e) {
+			// Handle null directory reference
+			System.err.println("Error: The directory is null.");
+		} catch (Exception e) {
+			// Handle unexpected errors
+			System.err.println("Unexpected error occurred: " + e.getMessage());
+		}
+	}
+
+	// Method to list shared files on the server
+	// It retrieves and sends the names and contents of .txt files stored on the
+	// server to the client.
+	private void listFilesShared(PrintWriter writer) {
+		try {
+			// List all .txt files in the server folder
+			File folder = new File(AppConst.PATH_SERVER);
+			File[] files = folder.listFiles((dir, name) -> name.endsWith(".txt")); // Only .txt files
+
+			if (files != null) {
+				for (File file : files) {
+					try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+						String line;
+						// Read each line from the shared file and send it to the client
+						while ((line = reader.readLine()) != null) {
+							writer.println(line);
+						}
+					}
+				}
+			}
+		} catch (SecurityException e) {
+			// Handle permission errors when accessing the folder or reading files
+			System.err.println("Error: Permission denied to access the directory or read the files.");
+		} catch (NullPointerException e) {
+			// Handle null directory reference
+			System.err.println("Error: The directory is null.");
+		} catch (Exception e) {
+			// Handle unexpected errors
+			System.err.println("Unexpected error occurred: " + e.getMessage());
+		}
+		writer.println("END");
+	}
+
+	// Method to handle client disconnection and resource cleanup
+	// It closes the reader, writer, and socket, ensuring proper cleanup of
+	// resources.
+	private void exit(Socket clientSocket, BufferedReader reader, PrintWriter writer) {
+		System.out.println("Client Wants To Disconnect");
+		try {
+			// Close the input and output streams first
+			reader.close(); // Close input stream
+			writer.close(); // Close output stream
+
+			// Then close the client socket
+			exit(clientSocket);
+		} catch (IOException e) {
+			// Handle I/O errors while closing resources
+			System.err.println("I/O error occurred while closing resources.");
+		} catch (NullPointerException e) {
+			// Handle null references during cleanup
+			System.err.println("Error: One or more resources are not initialized.");
+		} catch (Exception e) {
+			// Handle unexpected errors during cleanup
+			System.err.println("Unexpected error occurred while closing resources: " + e.getMessage());
+		}
+
+		System.out.println("Client Disconnected Successfully");
+	}
+
+	// Helper method to close the client socket
+	private void exit(Socket clientSocket) {
+		try {
+			if (!clientSocket.isClosed()) {
+				clientSocket.close(); // Close the socket
+			}
+		} catch (IOException e) {
+			// Handle I/O errors while closing the socket
+			System.err.println("I/O error occurred while closing the socket.");
+		} catch (NullPointerException e) {
+			// Handle null socket reference
+			System.err.println("Error: The client socket is not initialized.");
+		} catch (Exception e) {
+			// Handle unexpected errors while closing the socket
+			System.err.println("Unexpected error occurred while closing the socket: " + e.getMessage());
+		}
+	}
+
 }
