@@ -1,12 +1,13 @@
 package controller;
 
+import application.Load_Interfaces;
 import application.Main;
 import javafx.fxml.FXML;
 import javafx.scene.control.Button;
 import javafx.scene.control.Tooltip;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
-import model.Communication;
+import protocol.Communication;
 
 public class Top {
 
@@ -48,7 +49,13 @@ public class Top {
 
 		System.out.println("Client Disconnected Successfuly\n");
 
-		disconnected();
+		// disconnected();
+		
+		Main.communication_Manager.disconnect();
+		
+		Load_Interfaces.displayLogIn();
+		
+		
 	}
 
 	private void connected() {

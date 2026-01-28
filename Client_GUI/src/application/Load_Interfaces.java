@@ -32,6 +32,10 @@ public class Load_Interfaces {
 	private static BorderPane interface_Pane = new BorderPane();
 	
 	private static Stage stage;
+	
+	private static Scene log_In_Scene = null;
+	
+	private static Scene main_Scene = null;
 		
 	private static ClassInfo log_In;
 	
@@ -47,7 +51,7 @@ public class Load_Interfaces {
 	
 	private static ClassInfo history;
 			
-	//progress Bar TODO
+	private static ClassInfo circleProgress;
 
 	/**
      * Constructor initializes the UI by setting up the main layout and loading
@@ -90,12 +94,19 @@ public class Load_Interfaces {
 	    System.out.println("Create History");
 	    Load_Interfaces.history = create_History_Interface();
 	    
+	    System.out.println("Create Circle Progress");
+	    Load_Interfaces.circleProgress = create_Circle_Progress();
+	    
+	    //Initial The Scenes this is new addition
+		interface_Pane.setCenter(circleProgress.getInterface());
+		Load_Interfaces.main_Scene = new Scene(interface_Pane);
+		Load_Interfaces.log_In_Scene = new Scene(log_In.getInterface());
+		
         // Set up the scene and the primary stage
 	    add_CSS(AppConst.Application_CSS_Name, interface_Pane);
-	    Scene scene = new Scene(log_In.getInterface());
-	    primaryStage.setTitle("Client File Sharing");
+	    primaryStage.setTitle("Wave Flow (Client File Sharing)");
 	    primaryStage.getIcons().add(new Image(getClass().getResource("/image/icon blue.jpg").toString()));
-	    primaryStage.setScene(scene);   
+	    primaryStage.setScene(log_In_Scene);   
 	    primaryStage.show();
 	    
 	    Load_Interfaces.stage = primaryStage;
@@ -199,11 +210,21 @@ public class Load_Interfaces {
 		return load_Interface(AppConst.HISTORY_INTERFACE_NAME, AppConst.HISTORY_CSS_NAME);
 	}
 	
-	public static void displayMainApplication() {
+	private ClassInfo create_Circle_Progress() {
+		return load_Interface(AppConst.CIRCLE_PROGRESS, AppConst.HISTORY_CSS_NAME);
+	}
+	
+	public static void displayMainApplication() {		
 		stage.close();
-		stage.setScene(new Scene(interface_Pane));
-		((Right) right.getController()).ready();
+		stage.setScene(main_Scene);
+		((Right) right.getController()).onRefreashClick();
 		((Home) home_Pane.getController()).startWritingEffect();
+		stage.show();
+	}
+	
+	public static void displayLogIn() {
+		stage.close();
+		stage.setScene(log_In_Scene);
 		stage.show();
 	}
 	
@@ -232,6 +253,20 @@ public class Load_Interfaces {
 		clearAllFields();
 	}
 	
+	public static void displayCircleProgress() {
+		interface_Pane.setCenter(circleProgress.getInterface());
+		//clearAllFields();
+	}
+	
+	
+	public static void startCircleProgress(double totalSize) {
+		((CircularProgressBarController) circleProgress.getController()).start(totalSize);
+	}
+	
+	public static void updateCircleProgress(double currentSize, double timeBetweenPacket) {
+		((CircularProgressBarController) circleProgress.getController()).update(currentSize, timeBetweenPacket);
+	}
+	
 	public static void clearAllFields() {
 		//Test For Safety (The Correct instance)
 	    if (Download.class.isInstance(download_Pane.getController())) {
@@ -244,6 +279,17 @@ public class Load_Interfaces {
 	    
 	    if (Upload.class.isInstance(upload_Pane.getController())) {
 	        ((Upload) upload_Pane.getController()).clearField();
+	    }
+	}
+	
+	public static void updateText(String text) {
+		//Test For Safety (The Correct instance)
+	    if (Download.class.isInstance(download_Pane.getController())) {
+	        ((Download) download_Pane.getController()).setText(text);
+	    }
+	    
+	    if (Advance_Download.class.isInstance(adv_Download_Pane.getController())) {
+	        ((Advance_Download) adv_Download_Pane.getController()).setText(text);
 	    }
 	}
 	

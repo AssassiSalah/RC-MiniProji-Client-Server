@@ -11,7 +11,7 @@ public class Home {
 	@FXML
 	private Label textAreaDisplay;
 
-	private String[] words = { "Welcome", " to", " WIVE", " FLOW", ",", " the", " best", " application", " in",
+	private String[] words = { "Welcome", " to", " WAVE", " FLOW", ",", " the", " best", " application", " in",
 			" terms", " of", " speed", " of", " dealing", " with", " files.", " If", " I", " have", " interested",
 			" you", ",", " please", " click", " on", " Get", " Start." };
 

@@ -37,16 +37,16 @@
 
 /* Selected state */
 #selected {
-    -fx-background-color: #2E8B57; /* Replace with AppConst.Selected_COLOR */
+    -fx-background-color: #4681f1; /* Replace with AppConst.Selected_COLOR */
     -fx-text-fill: white;
 }
 
 #selected:hover {
-    -fx-background-color: #3C9F6F; /* Slightly lighter shade for hover */
+    -fx-background-color: #7AAEF9; /* Lighter shade for hover */
 }
 
 #selected:pressed {
-    -fx-background-color: #276B47; /* Darker shade for pressed */
+    -fx-background-color: #25478a; /* Darker shade for pressed */
 }
 
 .text-field {

@@ -55,8 +55,8 @@ public class HistoryController {
         tableView.setItems(filteredData);
 
         // Initialize ChoiceBox with filtering options
-        filterChoiceBox.setItems(FXCollections.observableArrayList("All", "Command", "File Name", "Visibility"));
-        filterChoiceBox.setValue("All"); // Default selection
+        filterChoiceBox.setItems(FXCollections.observableArrayList("Command", "File Name", "Visibility"));
+        filterChoiceBox.setValue("Command"); // Default selection
 
         // Add listeners for search bar and choice box
         setupSearchAndFilter();
@@ -79,7 +79,7 @@ public class HistoryController {
     }
 
     private Predicate<Record> createFilterPredicate(String searchText, String filterType) {
-        if (searchText == null || searchText.isEmpty() || "All".equals(filterType)) {
+        if (searchText == null || searchText.isEmpty()) {
             return record -> true; // No filtering
         }
 

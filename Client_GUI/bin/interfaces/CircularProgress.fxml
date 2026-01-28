@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.ProgressIndicator?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.StackPane?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.text.Font?>
+
+<!-- Main StackPane -->
+
+<VBox alignment="CENTER" prefHeight="550.0" prefWidth="650.0" spacing="20" xmlns="http://javafx.com/javafx/22" xmlns:fx="http://javafx.com/fxml/1" fx:controller="application.CircularProgressBarController">
+   <children>
+      <HBox alignment="CENTER" prefHeight="100.0" prefWidth="200.0" spacing="35.0">
+         <children>
+            <VBox alignment="CENTER" prefWidth="150.0">
+               <children>
+                  <Label text="Current Size" textFill="WHITE">
+                     <font>
+                        <Font size="25.0" />
+                     </font>
+                  </Label>
+                  <Label fx:id="currentSizeLabel" text="0 KB" textFill="WHITE">
+                     <font>
+                        <Font size="25.0" />
+                     </font>
+                  </Label>
+               </children>
+            </VBox>
+            <Label text="Progress Circule" textFill="WHITE">
+               <font>
+                  <Font name="System Bold" size="36.0" />
+               </font>
+            </Label>
+            <VBox alignment="CENTER" prefWidth="150.0">
+               <children>
+                  <Label text="Total Size" textFill="WHITE">
+                     <font>
+                        <Font size="25.0" />
+                     </font>
+                  </Label>
+                  <Label fx:id="totalSizeLabel" text="1000 KB" textFill="WHITE">
+                     <font>
+                        <Font size="25.0" />
+                     </font>
+                  </Label>
+               </children>
+            </VBox>
+         </children>
+      </HBox>
+      <Label alignment="CENTER" prefWidth="650.0" text="Name File" textFill="WHITE">
+         <font>
+            <Font size="25.0" />
+         </font>
+      </Label>
+      <HBox alignment="CENTER" spacing="30.0">
+         <children>
+            <VBox alignment="CENTER">
+               <children>
+                  <Label text="Current Time" textFill="WHITE">
+                     <font>
+                        <Font size="25.0" />
+                     </font>
+                  </Label>
+                  <Label fx:id="currentTimeLabel" text="0 sec" textFill="WHITE">
+                     <font>
+                        <Font size="25.0" />
+                     </font>
+                  </Label>
+               </children>
+            </VBox>
+            <StackPane>
+               <children>
+                  <ProgressIndicator fx:id="circularProgressBar" minHeight="250.0" minWidth="250.0" />
+                  <Label fx:id="percentageLabel" alignment="CENTER" prefHeight="150.0" prefWidth="150.0" style="-fx-font-size: 24px; -fx-font-weight: bold; -fx-background-color: white; -fx-background-radius: 100;" text="0%">
+                     <StackPane.margin>
+                        <Insets bottom="10.0" />
+                     </StackPane.margin>
+                  </Label>
+               </children>
+            </StackPane>
+            <VBox alignment="CENTER">
+               <children>
+                  <Label text="Remaining Time" textFill="WHITE">
+                     <font>
+                        <Font size="25.0" />
+                     </font>
+                  </Label>
+                  <Label fx:id="remainTimeLabel" text="N/A" textFill="WHITE">
+                     <font>
+                        <Font size="25.0" />
+                     </font>
+                  </Label>
+               </children>
+            </VBox>
+         </children>
+      </HBox>
+      <VBox alignment="CENTER">
+         <children>
+            <Label text="Speed" textFill="WHITE">
+               <font>
+                  <Font size="25.0" />
+               </font>
+            </Label>
+            <Label fx:id="speedTransferLabel" text="0 KB/sec" textFill="WHITE">
+               <font>
+                  <Font size="25.0" />
+               </font>
+            </Label>
+         </children>
+      </VBox>
+   </children>
+</VBox>

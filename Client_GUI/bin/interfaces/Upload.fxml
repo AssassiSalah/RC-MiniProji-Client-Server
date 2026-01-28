@@ -23,7 +23,7 @@
       </Label>
       <HBox alignment="CENTER" prefHeight="140.0" prefWidth="610.0">
          <children>
-            <TextField fx:id="pathFile" alignment="CENTER" prefHeight="80.0" prefWidth="530.0" promptText="Enter File Path ...">
+            <TextField fx:id="pathFile" alignment="CENTER" editable="false" onAction="#onUploadClick" prefHeight="80.0" prefWidth="530.0" promptText="Enter File Path ...">
                <tooltip>
                   <Tooltip text="Enter Path Of The File" />
                </tooltip>

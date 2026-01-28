@@ -35,3 +35,56 @@
     -fx-selection-bar: #4681f1;    /* Background color of selected item */
     -fx-selection-bar-text: white; /* Text color of selected item */
 }
+
+/* remove later */
+.table-view {
+    -fx-background-color: #e0f7fa;
+    -fx-background-color: transparent;
+    -fx-padding: 0;
+    -fx-border-radius: 5px;
+    -fx-border-width: 1px;
+    -fx-border-color: black
+}
+/* the head of table view */
+.table-view .column-header-background{
+    -fx-background-color: #26a69a;
+    -fx-background-insets: 0 0 0 0;
+    -fx-border-color: black;
+    -fx-border-width: 0.7px;
+}
+/* labels of the head */
+.table-view .column-header .label{
+    -fx-text-fill: #fff;
+}
+
+.table-row-cell {
+    -fx-border-color: black;
+    -fx-border-width: 0.2px;
+}
+
+
+.table-view .column-header, .filter{
+    -fx-background-color: transparent;
+    -fx-size: 40px;
+}
+
+
+.table-row-cell:selected {
+    -fx-background-color: #0f6789;
+    -fx-text-fill: white;   
+}
+
+.table-row-cell:focused {
+	 -fx-text-fill: red;
+}
+
+.table-column-cell {
+    -fx-background-color: black;
+    -fx-border-color: black;
+    -fx-border-width: 0.3px;
+}
+
+
+.progress-indicator .percentage {
+    -fx-opacity: 0; /* Hide the percentage text */
+}

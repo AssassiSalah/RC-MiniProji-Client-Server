@@ -4,9 +4,8 @@ import application.Load_Interfaces;
 import application.Main;
 import javafx.fxml.FXML;
 import javafx.scene.control.TextField;
-
-import model.Communication;
-import model.Hasher;
+import protocol.Communication;
+import protocol.Hasher;
 
 public class Log_In {
 
@@ -37,6 +36,8 @@ public class Log_In {
 
 	@FXML
 	private void log_In() {
+		if(!Main.communication_Manager.isConnect())
+			Main.communication_Manager.connect();
 		
 		if (handle_Username_Password("LOG_IN")) {
 			Load_Interfaces.informationAlert("Log In Successful", "Now You Are Authonticated");

@@ -39,6 +39,8 @@ public class AppConst {
 	
 	static final String HISTORY_INTERFACE_NAME = "History.fxml";
 	static final String HISTORY_CSS_NAME = "Center.css";
+	
+	static final String CIRCLE_PROGRESS = "CircularProgress.fxml";
 		 
 	static final String ABOUT_INTERFACE_NAME = "";
 	static final String HELP_INTERFACE_NAME = "";

@@ -2,6 +2,7 @@ package controller;
 
 import java.io.File;
 
+import application.Load_Interfaces;
 import application.Main;
 import javafx.fxml.FXML;
 import javafx.scene.control.TextField;
@@ -48,7 +49,7 @@ public class Upload {
     }
     
 	@FXML
-	private void onImportClick() {
+	private String onImportClick() {
 		// Create a FileChooser instance
         FileChooser fileChooser = new FileChooser();
         
@@ -69,15 +70,24 @@ public class Upload {
         	String filePath = selectedFile.getAbsolutePath();
             System.out.println("File selected: " + filePath);
             pathFile.setText(filePath);
+            return filePath;
         } else {
             // Handle case when no file is selected
             System.out.println("No file selected.");
             pathFile.setText("");
+            return "";
         }
 	}
 	
 	@FXML
 	private void onUploadClick() {
+		if(pathFile.getText().isEmpty()) {
+			if(onImportClick().isEmpty()) {
+				Load_Interfaces.informationAlert("Select File", "You Must Select an File.");
+				return;
+			}
+		}
+		
 		System.out.println("Want To Upload This File : " + pathFile.getText());
 		Main.communication_Manager.upload(pathFile.getText());
 		HistoryController.appendToFile(new HistoryController.Record("Upload", new File(pathFile.getText()).getName(), "false"));
@@ -85,5 +95,9 @@ public class Upload {
 	
 	public void clearField() {
 		pathFile.setText("");
+	}
+	
+	public void setText(String text) {
+		pathFile.setText(text);
 	}
 }

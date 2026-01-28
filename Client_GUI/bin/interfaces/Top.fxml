@@ -26,7 +26,7 @@
                               <Tooltip fx:id="state_text" text="Empty Tooltip" />
                            </tooltip>
                         </Button>
-                  <ImageView fitHeight="100.0" fitWidth="120.0" pickOnBounds="true" preserveRatio="true">
+                  <ImageView fitHeight="80.0" fitWidth="100.0" pickOnBounds="true" preserveRatio="true">
                      <image>
                         <Image url="@../image/icon%20blue.jpg" />
                      </image>
