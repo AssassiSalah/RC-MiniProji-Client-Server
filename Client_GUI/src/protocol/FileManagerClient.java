@@ -105,8 +105,8 @@ public class FileManagerClient {
                             fileOut.write(packet);
                             currentPacket++;
 
-                            if (currentPacket % 1000 == 0) {
-                                communication_Manager.updateProgressTimer(currentPacket * 4, endMillis - startMillis);
+                            if (currentPacket % 100 == 0) {
+                                communication_Manager.updateProgressTimer(currentPacket /1024, endMillis - startMillis);
                                 System.out.println("Packet " + currentPacket + " verified and written.");
                             }
                         } else {
