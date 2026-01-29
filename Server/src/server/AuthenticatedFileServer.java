@@ -3,10 +3,14 @@ package server;
 import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
+
+import util.Hasher;
 
 /**
  * AuthenticatedFileServer class handles multiple client connections with user
@@ -20,7 +24,8 @@ public class AuthenticatedFileServer {
 	private static final int TIME_OUT = 300000; // 5 minutes timeout
 
 	private int port;
-	private Map<String, String> users;
+	private SQLiteDatabaseHandler dbHandler;
+	//private Map<String, String> users;
 
 	/**
 	 * Constructs an AuthenticatedFileServer instance.
@@ -29,7 +34,9 @@ public class AuthenticatedFileServer {
 	 */
 	public AuthenticatedFileServer(int port) {
 		this.port = port;
-		users = FileManagerServer.getUsers(); // Replace with DB in production
+		dbHandler = new SQLiteDatabaseHandler();
+		dbHandler.createSharedFilesTable();
+		//users = FileManagerServer.getUsers(); // Replace with DB in production
 		FileManagerServer.createIfNotExist(AppConst.PATH_PROJECT);
 		FileManagerServer.createIfNotExist(AppConst.PATH_SERVER);
 	}
@@ -95,40 +102,49 @@ public class AuthenticatedFileServer {
 				switch (command) {
 				case "LOG_IN":
 					// Log in the user and authenticate
-					username = authenticate(reader, writer);
+					username = authenticate(reader, writer, clientSocket.getInetAddress().getHostAddress());
 					if (username.isEmpty()) {
 						// If authentication fails, handle exit (if necessary)
 					} else {
 						userDir = new File(AppConst.PATH_SERVER, username); // Set user directory
+						dbHandler.logCommand(username, "LOG_IN", "_", null, true);
 					}
 					break;
 				case "REGISTER":
 					// Register a new client
 					String newUsername = registerNewClient(reader, writer);
 					if (!newUsername.isEmpty()) {
-						File newUserDir = new File(AppConst.PATH_SERVER, newUsername);
+						/*File newUserDir = new File(AppConst.PATH_SERVER, newUsername);
 						if (!newUserDir.exists())
-							newUserDir.mkdirs(); // Create user directory
+							newUserDir.mkdirs(); // Create user directory*/
 					}
 					break;
 				case "UPLOAD":
 					// Handle file upload
 					String fileName = reader.readLine();
-					fileManager.receiveFile(userDir, fileName);
+					String visibility = reader.readLine();
+					fileManager.receiveFile(userDir, fileName, username, dbHandler, visibility);
 					break;
 				case "LIST_FILES_USER":
 					// List files of the user
 					listFilesUser(userDir, writer);
+					dbHandler.logCommand(username, "LIST_FILES_USER", "_", null, true);
 					break;
 				case "LIST_FILES_SHARED":
 					// List shared files
 					listFilesShared(writer);
+					dbHandler.logCommand(username, "LIST_FILES_SHARED", "_", null, true);
 					break;
 				case "DOWNLOAD":
 					// Handle file download
 					String requestedFileName_DOWNLOAD = reader.readLine();
 					System.out.println("File Name : " + requestedFileName_DOWNLOAD);
-					fileManager.sendFile(userDir, requestedFileName_DOWNLOAD);
+					if(fileManager.sendFile(userDir, requestedFileName_DOWNLOAD)) {
+						dbHandler.updateFileTransferStats(username, false, 1); // Update received files count
+					    dbHandler.logCommand(username, "DOWNLOAD", requestedFileName_DOWNLOAD, true, true);
+					} else {
+						dbHandler.logCommand(username, "DOWNLOAD", requestedFileName_DOWNLOAD, true, false);
+					}
 					break;
 				case "ADVANCE_DOWNLOAD":
 					// Handle advanced file search and download
@@ -141,10 +157,12 @@ public class AuthenticatedFileServer {
 					// Handle file removal
 					String requestedFileName = reader.readLine();
 					fileManager.removeFile(userDir, requestedFileName);
+					dbHandler.logCommand(username, "REMOVE", requestedFileName, null, true);
 					break;
 				case "EXIT":
 					// Exit the client connection
 					exit(clientSocket, reader, writer);
+					dbHandler.logCommand(username, "EXIT", "_", null, true);
 					return;
 				default:
 					writer.println("Unknown command");
@@ -166,35 +184,52 @@ public class AuthenticatedFileServer {
 	 * @param writer PrintWriter to send responses to the client
 	 * @return the username if authentication is successful, empty string otherwise
 	 */
-	private String authenticate(BufferedReader reader, PrintWriter writer) {
-		String username = null;
-		String password = null;
+	private String authenticate(BufferedReader reader, PrintWriter writer, String clientIP) {
+	    try {
+	        String username = reader.readLine();
+	        String password = reader.readLine();
+	        String hashedPassword = Hasher.hashPassword(password);
 
-		try {
-			// Read username and password from client
-			username = reader.readLine();
-			password = reader.readLine();
-		} catch (IOException e) {
-			System.err.println("I/O error occurred while reading data.");
-			writer.println("Authentication Failed");
-			return "";
-		}
-
-		// Validate user credentials
-		if (users.containsKey(username) && users.get(username).equals(password)) {
-			System.out.println("Authentication Successful. Welcome: " + username);
-			writer.println("Authentication Successful. Welcome: " + username);
-			return username;
-		} else {
-			writer.println("Authentication Failed");
-			return "";
-		}
+	        if (dbHandler.authenticateUser(username, hashedPassword)) {
+	            dbHandler.updateUserConnection(username, clientIP, true);
+	        	System.out.println("Authentication Successful. Welcome: " + username);
+	            writer.println("Authentication Successful. Welcome: " + username);
+	            
+	            Map<String, Object> userDetails = dbHandler.getUserDetails(username);
+	            // Iterate over the map entries
+	            for (Map.Entry<String, Object> entry : userDetails.entrySet()) {
+	                String key = entry.getKey();
+	                Object value = entry.getValue();
+	                
+	                // Print the key and determine the type of the value
+	                System.out.print("Key: " + key + ", Value: ");
+	                if (value instanceof Integer) {
+	                    System.out.println("Integer: " + value);
+	                } else if (value instanceof String) {
+	                    System.out.println("String: " + value);
+	                } else if (value instanceof Double) {
+	                    System.out.println("Double: " + value);
+	                } else if (value instanceof Boolean) {
+	                    System.out.println("Boolean: " + value);
+	                } else {
+	                    System.out.println("Unknown type: " + value);
+	                }
+	            }
+	            return username;
+	        } else {
+	            writer.println("Authentication Failed");
+	            return "";
+	        }
+	    } catch (IOException e) {
+	        writer.println("Authentication Failed");
+	        return "";
+	    }
 	}
 
 	// Method to register a new client account
 	// It reads the username and password from the client, validates them, and
 	// registers the client if the data is valid.
-	private String registerNewClient(BufferedReader reader, PrintWriter writer) {
+	/*private String registerNewClient(BufferedReader reader, PrintWriter writer) {
 		// Validate the username and password (basic validation)
 		String username = null;
 		String password = null;
@@ -248,7 +283,66 @@ public class AuthenticatedFileServer {
 
 		writer.println("Register Success");
 		return username; // Return username if registration is successful
+	}*/
+	private String registerNewClient(BufferedReader reader, PrintWriter writer) {
+		
+		// Validate the username and password (basic validation)
+		String username = null;
+		String password = null;
+		
+		try {
+			// Reading username and password from the client
+			username = reader.readLine(); // Reading username
+			password = reader.readLine(); // Reading password
+		} catch (EOFException e) {
+			// Handles unexpected EOF during reading
+			System.err.println("Error: Reached the end of the stream unexpectedly.");
+			writer.println("Register Failed");
+			return ""; // Return empty string if data could not be read
+		} catch (IOException e) {
+			// Handles I/O errors during reading
+			System.err.println("I/O error occurred while reading data.");
+			writer.println("Register Failed");
+			return ""; // Return empty string in case of I/O error
+		} catch (NullPointerException e) {
+			// Handles null pointer exceptions during reading
+			System.err.println("Error: DataInputStream is not initialized.");
+			writer.println("Register Failed");
+			return ""; // Return empty string if stream is null
+		} catch (Exception e) {
+			// Catches any unexpected exceptions
+			System.err.println("Unexpected error occurred: " + e.getMessage());
+			writer.println("Register Failed");
+			return ""; // Return empty string for unexpected errors
+		}
+
+		// Basic validation for username and password
+		if (username.isEmpty() || password.isEmpty()) {
+			// Username or password cannot be empty
+			System.out.println("Error: Username or password cannot be empty.");
+			writer.println("Register Failed");
+			return ""; // Return empty string if validation fails
+		}
+		
+		try {
+	        String hashedPassword = Hasher.hashPassword(password);
+
+	        if (dbHandler.registerUser(username, hashedPassword)) {
+	        	dbHandler.createHistoryTable(username);
+	        	Files.createDirectories(Paths.get(AppConst.PATH_SERVER, username));
+	            writer.println("Successful Registration");
+	            dbHandler.logCommand(username, "REGISTER", "_", null, true);
+	            return username;
+	        } else {
+	            writer.println("Register Failed");
+	            return "";
+	        }
+	    } catch (IOException e) {
+	        writer.println("Register Failed");
+	        return "";
+	    }
 	}
+
 
 	// Method to list the files belonging to a specific user
 	// It reads the directory of the user and sends the list of files back to the
@@ -281,7 +375,7 @@ public class AuthenticatedFileServer {
 	// Method to list shared files on the server
 	// It retrieves and sends the names and contents of .txt files stored on the
 	// server to the client.
-	private void listFilesShared(PrintWriter writer) {
+	/*private void listFilesShared(PrintWriter writer) {
 		try {
 			// List all .txt files in the server folder
 			File folder = new File(AppConst.PATH_SERVER);
@@ -309,6 +403,10 @@ public class AuthenticatedFileServer {
 			System.err.println("Unexpected error occurred: " + e.getMessage());
 		}
 		writer.println("END");
+	}*/
+	
+	private void listFilesShared(PrintWriter writer) {
+		dbHandler.listSharedFiles(writer);
 	}
 
 	// Method to handle client disconnection and resource cleanup
@@ -354,5 +452,15 @@ public class AuthenticatedFileServer {
 			System.err.println("Unexpected error occurred while closing the socket: " + e.getMessage());
 		}
 	}
+	
+	/*private void handleClientDisconnection(String username, Socket socket) {
+	    try {
+	        String clientIP = socket.getInetAddress().getHostAddress();
+	        dbHandler.updateUserConnection(username, clientIP, false); // Log abnormal disconnect
+	    } catch (Exception e) {
+	        System.err.println("Error handling disconnection: " + e.getMessage());
+	    }
+	}*/
+
 
 }

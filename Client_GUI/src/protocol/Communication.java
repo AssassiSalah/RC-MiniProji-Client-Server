@@ -78,6 +78,7 @@ public class Communication {
     public void download(String fileName) {
         write("DOWNLOAD");
         write(fileName);
+        
         System.out.println("File Name: " + fileName);
 
         String response = read();
@@ -155,7 +156,7 @@ public class Communication {
      * 
      * @param filePath The path of the file to be uploaded.
      */
-    public void upload(String filePath) {
+    public void upload(String filePath, String visibility) {
         write("UPLOAD");
         File file = new File(filePath);
         if (!file.exists()) {
@@ -164,6 +165,7 @@ public class Communication {
         }
 
         write(file.getName());
+        write(visibility);
 
         String serverResponse = read();
         System.out.println(serverResponse);

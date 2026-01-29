@@ -4,8 +4,8 @@ public class AppConst {
 	
     public static final String SERVER_ADDRESS = "localhost";
     public static final int SERVER_PORT = 5000;
-    static final String DEFAULT_PATH = System.getProperty("user.home") + "/RC_miniproj";
-    public static final String DEFAULT_DOWNLOAD_PATH = DEFAULT_PATH + "/Download";
+    static final String DEFAULT_PATH = System.getProperty("user.home") + "/RCtests";
+    public static final String DEFAULT_DOWNLOAD_PATH = DEFAULT_PATH + "/Downloads";
     
     
 	static final String Selected_COLOR = "#4CAF50";

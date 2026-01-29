@@ -122,8 +122,15 @@ public class Upload {
         }
 
         System.out.println("Want To Upload This File: " + pathFile.getText());
+        
+        String visibility;
+        if(!Right.visibility)
+        	visibility = "private";
+        else
+        	visibility = "public";
+        
         // Call the upload method to upload the selected file
-        Main.communication_Manager.upload(pathFile.getText());
+        Main.communication_Manager.upload(pathFile.getText(), visibility);
         // Log the upload attempt in the history
         HistoryController.appendToFile(new HistoryController.Record("Upload", new File(pathFile.getText()).getName(), "false"));
     }

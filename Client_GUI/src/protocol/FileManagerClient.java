@@ -17,7 +17,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import application.AppConst;
 import application.Load_Interfaces;
-
+import javafx.application.Platform;
 import javafx.concurrent.Task;
 
 public class FileManagerClient {
@@ -25,7 +25,7 @@ public class FileManagerClient {
     private Communication communication_Manager;
     private DataInputStream dataInputStream;
     private DataOutputStream dataOutputStream;
-    private int BUFFER_SIZE = 8192;
+    private int BUFFER_SIZE = 65536; //8192;
 
     /**
      * Constructs a new `FileManagerClient` object.
@@ -62,6 +62,93 @@ public class FileManagerClient {
         communication_Manager.write(message);
     }
 
+    
+    
+    
+    
+    
+    /**
+     * Downloads a file from the server asynchronously.
+     *
+     * @param fileName the name of the file to be downloaded.
+     * @throws IOException              if an I/O error occurs during file download.
+     * @throws NoSuchAlgorithmException if SHA-256 is not supported.
+     */
+    public void downloadFile(String fileName) throws IOException, NoSuchAlgorithmException {
+        File downloadedFile = new File(AppConst.DEFAULT_DOWNLOAD_PATH, fileName);
+
+        // Read total file size from the server
+        long totalSize = dataInputStream.readLong();
+        System.out.println("Size... " + totalSize);
+        if (totalSize <= 0) {
+            throw new IOException("Invalid file size received.");
+        }
+
+        MessageDigest messageDigest = MessageDigest.getInstance("SHA-256");
+        AtomicLong currentSize = new AtomicLong(0);
+
+        // Asynchronous download task
+        Task<Void> downloadTask = new Task<>() {
+            @Override
+            protected Void call() throws Exception {
+                System.out.println("Starting download...");
+
+                try (RandomAccessFile fileOut = new RandomAccessFile(downloadedFile, "rw")) {
+                    fileOut.setLength(totalSize); // Preallocate space for the file
+
+                    byte[] buffer = new byte[BUFFER_SIZE];
+                    int bytesRead;
+                    long startMillis = System.currentTimeMillis();
+
+                    communication_Manager.startProgressTimer(totalSize);
+
+                    while (currentSize.get() < totalSize) {
+                        // Adjust buffer size for the last chunk
+                        int remainingBytes = (int) Math.min(buffer.length, totalSize - currentSize.get());
+                        bytesRead = dataInputStream.read(buffer, 0, remainingBytes);
+
+                        if (bytesRead == -1) {
+                            throw new IOException("Unexpected end of stream.");
+                        }
+
+                        // Write to file and update hash
+                        fileOut.write(buffer, 0, bytesRead);
+                        messageDigest.update(buffer, 0, bytesRead);
+                        currentSize.addAndGet(bytesRead);
+
+                        // Log progress
+                        if (currentSize.get() % 10_000 == 0) {
+                            double progress = (double) currentSize.get() / totalSize;
+                            long elapsedMillis = System.currentTimeMillis() - startMillis;
+                            communication_Manager.updateProgressTimer(currentSize.get() / 1024, elapsedMillis);
+
+                            System.out.printf("Downloaded %.2f%%%n", progress * 100);
+                        }
+                    }
+
+                    // Validate file hash
+                    String finalHash = dataInputStream.readUTF();
+                    String calculatedHash = Hasher.bytesToHex(messageDigest.digest());
+
+                    if (!finalHash.equals(calculatedHash)) {
+                        throw new IOException("File hash mismatch! Expected: " + finalHash + ", Calculated: " + calculatedHash);
+                    }
+
+                    System.out.println("Download completed successfully. Hash verified.");
+                } catch (IOException e) {
+                    System.err.println("Download failed: " + e.getMessage());
+                    throw e;
+                }
+
+                communication_Manager.stopCircleProgressD();
+                return null;
+            }
+        };
+
+        // Start download task in a new thread
+        new Thread(downloadTask).start();
+    }
+    
     /**
      * Downloads a file from the server asynchronously.
      *
@@ -69,7 +156,7 @@ public class FileManagerClient {
      * @throws NoSuchAlgorithmException if SHA-256 is not supported.
      * @throws IOException              if an I/O error occurs during file download.
      */
-    public void downloadFile(String fileName) throws NoSuchAlgorithmException, IOException {
+    /*public void downloadFile(String fileName) throws NoSuchAlgorithmException, IOException {
         File downloadedFile = new File(AppConst.DEFAULT_DOWNLOAD_PATH, fileName);
 
         long totalSize = dataInputStream.readLong();
@@ -141,12 +228,8 @@ public class FileManagerClient {
 
                     // Verify final hash
                     byte[] calculatedHash = messageDigest.digest();
-                    StringBuilder hashBuilder = new StringBuilder();
-                    for (byte b : calculatedHash) {
-                        hashBuilder.append(String.format("%02x", b));
-                    }
+                    String calculatedFileHash = Hasher.bytesToHex(calculatedHash);
 
-                    String calculatedFileHash = hashBuilder.toString();
                     if (!calculatedFileHash.equals(finalHash)) {
                         System.err.println("File hash mismatch! Expected: " + finalHash + ", Calculated: " + calculatedFileHash);
                     }
@@ -161,18 +244,21 @@ public class FileManagerClient {
             }
         };
 
-        new Thread(downloadTask).start();
+        Platform.runLater(() -> {
+            downloadTask.setOnSucceeded(event -> {
+                System.out.println("Download Task completed successfully.");
+                communication_Manager.stopCircleProgressD();
+            });
 
-        downloadTask.setOnSucceeded(event -> {
-            System.out.println("Download Task completed successfully.");
-            communication_Manager.stopCircleProgressD();
-        });
+            downloadTask.setOnFailed(event -> {
+                System.err.println("Download Task failed.");
+                communication_Manager.stopCircleProgressD();
+            });
 
-        downloadTask.setOnFailed(event -> {
-            System.err.println("Download Task failed.");
-            communication_Manager.stopCircleProgressD();
+            new Thread(downloadTask).start();
         });
-    }
+    }*/
+    
 
 
     /**
@@ -201,7 +287,7 @@ public class FileManagerClient {
                 System.out.println("start to upload ");
 
                 try (FileInputStream fileInputStream = new FileInputStream(file)) {
-                    byte[] buffer = new byte[4096];
+                    byte[] buffer = new byte[BUFFER_SIZE];
                     int bytesRead;
                     int sequenceNumber = 0;
 
@@ -239,7 +325,8 @@ public class FileManagerClient {
                     String fileHash = hashBuilder.toString();
                     System.out.println("Calculated Hash: " + fileHash);
 
-                    write("File uploaded. Hash: " + fileHash);
+                    //write("File uploaded. Hash: " + fileHash);
+                    System.out.println("File uploaded. Hash: " + fileHash);
 
                     System.out.println("File uploaded successfully.");
 
@@ -253,6 +340,8 @@ public class FileManagerClient {
 
         new Thread(uploadTask).start();
     }
+    
+    
 
     /**
      * Requests the server to remove a file.

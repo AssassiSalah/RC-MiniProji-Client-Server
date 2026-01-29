@@ -29,7 +29,8 @@ public class Log_In {
 
 		communication_Manager.write(command);
 		communication_Manager.write(username);
-		communication_Manager.write(Hasher.hashPassword(password));
+		communication_Manager.write(password);
+		//communication_Manager.write(Hasher.hashPassword(password));
 		
 		return communication_Manager.read().contains("Successful");
 	}
@@ -49,6 +50,9 @@ public class Log_In {
 
 	@FXML
 	private void register() {
+		if(!Main.communication_Manager.isConnect())
+			Main.communication_Manager.connect();
+		
 		if (handle_Username_Password("REGISTER")) {
 			Load_Interfaces.informationAlert("Register Successful", "Now You Can Log In");
 		} else {

@@ -16,7 +16,7 @@ public class AppConst {
      * The base path for the project's storage directory.
      * Defaults to a folder named "RC_miniproj" in the user's home directory.
      */
-    public static final String PATH_PROJECT = System.getProperty("user.home") + "/RC_miniproj";
+    public static final String PATH_PROJECT = System.getProperty("user.home") + "/RCtests";
 
     /**
      * The directory for server-side storage within the project.

@@ -38,6 +38,8 @@ public class Right {
     private ToggleButton sharedFilesButton;
     
     private DateTimeFormatter time_Formatter;
+    
+    public static boolean visibility;
 
     /**
      * Initializes the controller. This method is automatically called
@@ -132,6 +134,7 @@ public class Right {
     public void selectMyFiles() {
     	myFilesButton.setSelected(true);
     	sharedFilesButton.setSelected(false);
+    	visibility = false;
     	onRefreashClick();
     }
     
@@ -139,6 +142,7 @@ public class Right {
     public void selectSharedFiles() {
     	sharedFilesButton.setSelected(true);
     	myFilesButton.setSelected(false);
+    	visibility = true;
     	onRefreashClick();
     }
     

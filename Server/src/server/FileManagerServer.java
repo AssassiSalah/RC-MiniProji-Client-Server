@@ -3,6 +3,7 @@ package server;
 import java.io.*;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -20,7 +21,11 @@ public class FileManagerServer {
     private BufferedReader reader;
     private PrintWriter writer;
 
-    private static final int BUFFER_SIZE = 8192; // Buffer size for file transfer
+    private static final int BUFFER_SIZE = 65536; // Buffer size for file transfer 4KB 4096
+    											  // 8 KB 8192;
+    											  // 16 KB 16384;
+    											  // 64 KB 65536;
+    											  // 128 KB 131072;
 
     /**
      * Constructs a FileManager object with the necessary I/O streams.
@@ -94,13 +99,14 @@ public class FileManagerServer {
     }
 
     /**
+     * while (currentSize < totalSize && (bytesRead = dataInputStream.read(buffer, 0, Math.min(buffer.length, (int)(totalSize - currentSize)))) != -1)
      * Handles the upload of a file from the client, verifying its integrity using SHA-256.
-     * 
+     *
      * @param dir      the directory to save the file in
      * @param fileName the name of the file being uploaded
      * @throws IOException if an error occurs during file transfer
      */
-    public void receiveFile(File dir, String fileName) throws IOException {
+    public void receiveFile(File dir, String fileName, String username, SQLiteDatabaseHandler dbHandler, String visibility) throws IOException {
         File newFile = new File(dir, fileName);
         MessageDigest messageDigest;
 
@@ -129,11 +135,11 @@ public class FileManagerServer {
         long currentSize = 0;
 
         try (RandomAccessFile randomAccessFile = new RandomAccessFile(newFile, "rw")) {
-            byte[] buffer = new byte[4096];
+            byte[] buffer = new byte[BUFFER_SIZE];
             int bytesRead;
 
             // Loop to read file data in chunks
-            while (currentSize < totalSize && (bytesRead = dataInputStream.read(buffer)) != -1) {
+            while (currentSize < totalSize && (bytesRead = dataInputStream.read(buffer, 0, Math.min(buffer.length, (int)(totalSize - currentSize)))) != -1) {
                 randomAccessFile.write(buffer, 0, bytesRead);
                 messageDigest.update(buffer, 0, bytesRead); // Update the hash
                 currentSize += bytesRead;
@@ -144,10 +150,21 @@ public class FileManagerServer {
                     System.out.printf("Received: %.2f%%%n", progress);
                 }
             }
-
+            
+            
             // Compute the final hash
             String calculatedHash = Hasher.bytesToHex(messageDigest.digest());
-            write("File received. Hash: " + calculatedHash);
+            //write("File received. Hash: " + calculatedHash);
+            System.out.println("File received. Hash: " + calculatedHash);
+            
+            dbHandler.updateFileTransferStats(username, true, 1); // Update sent files count
+            if(visibility.equals("public")) {
+            	dbHandler.logCommand(username, "UPLOAD", fileName, true, true);
+            	dbHandler.addSharedFile(fileName, username);
+            } else {
+            	dbHandler.logCommand(username, "UPLOAD", fileName, false, true);
+            }
+            
 
             // Start asynchronous virus check
             new Thread(() -> {
@@ -157,6 +174,7 @@ public class FileManagerServer {
                     System.err.println("File is infected!");
                     // Uncomment to delete infected files
                     // newFile.delete();
+                    dbHandler.updateSentVirusesCount(username, 1);
                 }
             }).start();
 
@@ -165,6 +183,49 @@ public class FileManagerServer {
         }
     }
 
+
+    /**
+     * Sends a file to the client in chunks with hash-based integrity verification.
+     *
+     * @param dir      the directory containing the file
+     * @param fileName the name of the file to send
+     * @throws IOException if an error occurs during file transfer
+     */
+    public boolean sendFile(File dir, String fileName) throws IOException {
+        File file = new File(dir, fileName);
+        if (!file.exists()) {
+            write("File Not Found.");
+            return false;
+        }
+
+        write("Ready");
+        long totalSize = file.length();
+        dataOutputStream.writeLong(totalSize);
+
+        try (RandomAccessFile randomAccessFile = new RandomAccessFile(file, "r")) {
+            MessageDigest messageDigest = MessageDigest.getInstance("SHA-256");
+            byte[] buffer = new byte[BUFFER_SIZE];
+            int bytesRead;
+
+            while ((bytesRead = randomAccessFile.read(buffer)) != -1) {
+                dataOutputStream.write(buffer, 0, bytesRead);
+                messageDigest.update(buffer, 0, bytesRead); // Update hash with chunk data
+            }
+
+            // Send the final file hash
+            String finalHash = Hasher.bytesToHex(messageDigest.digest());
+            dataOutputStream.writeUTF(finalHash);
+
+            System.out.println("File sent successfully. Hash: " + finalHash);
+            return true;
+        } catch (Exception e) {
+            System.err.println("Error during file transfer: " + e.getMessage());
+            dataOutputStream.writeUTF("TRANSFER_FAILED " + e.getMessage());
+            return false;
+        }
+    }
+    
+    
     /**
      * Sends a file to the client in packets, computing hashes for integrity checks.
      * 
@@ -173,7 +234,7 @@ public class FileManagerServer {
      * @return true if the file was sent successfully, false otherwise
      * @throws IOException if an error occurs during file transfer
      */
-    public boolean sendFile(File dir, String requestedFileName) throws IOException {
+    /*public boolean sendFile(File dir, String requestedFileName) throws IOException {
         File file = new File(dir, requestedFileName);
         if (!file.exists()) {
             System.out.println("File Not Found");
@@ -216,7 +277,7 @@ public class FileManagerServer {
                     }
                 } else if (clientRequest.equals("TRANSFER_COMPLETE")) {
                     byte[] fileHash = messageDigest.digest();
-                    dataOutputStream.writeUTF("FINAL_HASH " + Hasher.bytesToHex(fileHash));
+                    dataOutputStream.writeUTF(Hasher.bytesToHex(fileHash)); //Final HASH
                     break;
                 }
             }
@@ -226,7 +287,8 @@ public class FileManagerServer {
             dataOutputStream.writeUTF("TRANSFER_FAILED " + e.getMessage());
             return false;
         }
-    }
+    }*/
+
 
     /**
      * Removes a file from the specified folder if it exists.

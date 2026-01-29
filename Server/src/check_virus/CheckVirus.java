@@ -24,12 +24,16 @@ public class CheckVirus {
 
         try {
             // Check internet connectivity for VirusTotal API
-            if (CheckInternet.isOnline()) {
+            /*if (CheckInternet.isOnline()) {
                 System.out.println("Check With API");
                 return CheckWithAPI.isSafe(file); // Use VirusTotal API if internet is available
             } 
             // If no internet, fallback to Windows Defender if on Windows
-            else if (isWindows() && CheckWithDefender.isWindowsDefenderAvailable()) {
+            else */
+        	if (isLinux() && CheckWithClamAV.isClamAVAvailable()) {
+                System.out.println("Check With ClamAV");
+                return CheckWithClamAV.scanFileWithClamAV(file.getAbsolutePath());
+            } else if (isWindows() && CheckWithDefender.isWindowsDefenderAvailable()) {
                 System.out.println("Check With Windows Defender");
                 // Use Windows Defender to scan the file
                 return CheckWithDefender.scanFileWithDefender(file.getAbsolutePath()); // TODO: FIX THIS
@@ -53,5 +57,9 @@ public class CheckVirus {
     public static boolean isWindows() {
         // Retrieve the OS name from system properties
         return System.getProperty("os.name").contains("Windows");
+    }
+    
+    public static boolean isLinux() {
+        return System.getProperty("os.name").contains("Linux");
     }
 }
