@@ -1,10 +1,16 @@
 package server;
 
 import java.io.*;
+import java.security.InvalidAlgorithmParameterException;
+import java.security.InvalidKeyException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.HashMap;
-import java.util.Map;
+import javax.crypto.BadPaddingException;
+import javax.crypto.Cipher;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.NoSuchPaddingException;
+import javax.crypto.SecretKey;
+import javax.crypto.spec.IvParameterSpec;
 
 import check_virus.CheckVirus;
 import util.Hasher;
@@ -20,7 +26,11 @@ public class FileManagerServer {
     private BufferedReader reader;
     private PrintWriter writer;
 
-    private static final int BUFFER_SIZE = 8192; // Buffer size for file transfer
+    private static final int BUFFER_SIZE = 4096; // Buffer size for file transfer 4KB 4096
+    											  // 8 KB 8192;
+    											  // 16 KB 16384;
+    											  // 64 KB 65536;
+    											  // 128 KB 131072;
 
     /**
      * Constructs a FileManager object with the necessary I/O streams.
@@ -37,26 +47,7 @@ public class FileManagerServer {
         this.writer = writer;
     }
 
-    /**
-     * Mimics a database by returning a map of hardcoded user credentials.
-     * Hashes passwords and creates user directories if not already present.
-     * 
-     * @return a map of usernames to hashed passwords
-     */
-    public static Map<String, String> getUsers() {
-        Map<String, String> users = new HashMap<>();
-        // Sample user credentials
-        users.put("admin", Hasher.hashPassword("admin"));
-        createIfNotExist("admin");
-        users.put("1", Hasher.hashPassword("1"));
-        createIfNotExist("1");
-        users.put("user1", Hasher.hashPassword("pass1"));
-        createIfNotExist("user1");
-        users.put("user2", Hasher.hashPassword("pass2"));
-        createIfNotExist("user2");
-        return users;
-    }
-
+    
     /**
      * Ensures that a directory exists, creating it if necessary.
      * 
@@ -92,134 +83,190 @@ public class FileManagerServer {
     public void write(String message) {
         writer.println(message);
     }
-
+    
+    
     /**
-     * Handles the upload of a file from the client, verifying its integrity using SHA-256.
-     * 
-     * @param dir      the directory to save the file in
-     * @param fileName the name of the file being uploaded
-     * @throws IOException if an error occurs during file transfer
+     * Receives an encrypted file from a client, decrypts it using AES, verifies its integrity using SHA-256, 
+     * and stores it on the server. This method also performs an asynchronous virus scan on the received file.
+     *
+     * @param dir          the directory where the received file will be saved
+     * @param fileName     the name of the file being uploaded
+     * @param username     the name of the user uploading the file
+     * @param dbHandler    a handler to interact with the database for logging and updates
+     * @param visibility   the visibility of the file (e.g., "public" or "private")
+     * @param sessionAESKey the AES key used for decryption
+     * @param sessionIV    the initialization vector (IV) used for AES decryption
+     * @throws IOException if an I/O error occurs during file reception
+     * @throws GeneralSecurityException if an error occurs during decryption or hash computation
      */
-    public void receiveFile(File dir, String fileName) throws IOException {
+    public void receiveFile(File dir, String fileName, String username, SQLiteDatabaseHandler dbHandler, String visibility, SecretKey sessionAESKey, IvParameterSpec sessionIV) throws IOException, IllegalBlockSizeException, BadPaddingException, NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, InvalidAlgorithmParameterException {
+        // Define the file path and prepare the SHA-256 message digest
         File newFile = new File(dir, fileName);
         MessageDigest messageDigest;
 
-        // Initialize the MessageDigest for SHA-256 hashing
+        // Initialize the SHA-256 algorithm
         try {
             messageDigest = MessageDigest.getInstance("SHA-256");
         } catch (NoSuchAlgorithmException e) {
             System.err.println("SHA-256 algorithm not available.");
-            write("Algo Of Hash Not Exist.");
+            write("Algorithm of hash not available.");
             return;
         }
 
+        // Check if the file already exists
         if (newFile.exists()) {
-            write("File Already Exist.");
+            write("File already exists.");
             return;
         } else {
-            write("Ready To Receive.");
+            write("Ready to receive.");
         }
 
-        long totalSize = dataInputStream.readLong(); // Read file size
-        if (totalSize <= 0) {
-            write("Invalid file size.");
+        // Read the total size of the encrypted file
+        long encryptedSize = dataInputStream.readLong();
+        if (encryptedSize <= 0) {
+            write("Invalid encrypted file size.");
             return;
         }
 
-        long currentSize = 0;
+        long receivedSize = 0; // Track how much data has been received
 
         try (RandomAccessFile randomAccessFile = new RandomAccessFile(newFile, "rw")) {
-            byte[] buffer = new byte[4096];
+            byte[] buffer = new byte[BUFFER_SIZE]; // Buffer for reading data
             int bytesRead;
 
-            // Loop to read file data in chunks
-            while (currentSize < totalSize && (bytesRead = dataInputStream.read(buffer)) != -1) {
-                randomAccessFile.write(buffer, 0, bytesRead);
-                messageDigest.update(buffer, 0, bytesRead); // Update the hash
-                currentSize += bytesRead;
+            // Initialize the AES cipher in decryption mode
+            Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
+            cipher.init(Cipher.DECRYPT_MODE, sessionAESKey, sessionIV);
 
-                // Optionally log progress
-                if (currentSize % 10000 == 0) {
-                    double progress = (double) currentSize / totalSize * 100;
-                    System.out.printf("Received: %.2f%%%n", progress);
+            // Read and decrypt data in chunks
+            while (receivedSize < encryptedSize) {
+                bytesRead = dataInputStream.read(buffer, 0, (int) Math.min(buffer.length, encryptedSize - receivedSize));
+                if (bytesRead == -1) {
+                    break;
+                }
+
+                receivedSize += bytesRead;
+
+                // Decrypt the chunk and write it to the file
+                byte[] decryptedChunk = cipher.update(buffer, 0, bytesRead);
+                if (decryptedChunk != null) {
+                    randomAccessFile.write(decryptedChunk);
+                    messageDigest.update(decryptedChunk); // Update the hash with the decrypted data
                 }
             }
 
-            // Compute the final hash
-            String calculatedHash = Hasher.bytesToHex(messageDigest.digest());
-            write("File received. Hash: " + calculatedHash);
+            // Finalize decryption to handle any remaining bytes
+            byte[] finalDecryptedChunk = cipher.doFinal();
+            if (finalDecryptedChunk != null) {
+                randomAccessFile.write(finalDecryptedChunk);
+                messageDigest.update(finalDecryptedChunk);
+            }
 
-            // Start asynchronous virus check
+            // Receive the expected hash from the client
+            String receivedHash = dataInputStream.readUTF();
+            // Compute the hash of the received file
+            String calculatedHash = Hasher.bytesToHex(messageDigest.digest());
+
+            // Compare the received hash with the calculated hash
+            if (!receivedHash.equals(calculatedHash)) {
+                throw new IOException("File hash mismatch! Expected: " + receivedHash + ", Calculated: " + calculatedHash);
+            }
+
+            System.out.println("File received successfully. Hash verified: " + calculatedHash);
+
+            // Update the database with the file transfer stats
+            dbHandler.updateFileTransferStats(username, true, 1);
+            if (visibility.equals("public")) {
+                dbHandler.logCommand(username, "UPLOAD", fileName, true, true);
+                dbHandler.addSharedFile(fileName, username);
+            } else {
+                dbHandler.logCommand(username, "UPLOAD", fileName, false, true);
+            }
+
+            // Perform an asynchronous virus scan
             new Thread(() -> {
                 if (CheckVirus.isSafe(newFile)) {
                     System.out.println("File is safe.");
                 } else {
                     System.err.println("File is infected!");
-                    // Uncomment to delete infected files
-                    // newFile.delete();
+                    newFile.delete(); // Delete the file if it is infected
+                    dbHandler.updateSentVirusesCount(username, 1);
                 }
             }).start();
 
         } catch (IOException e) {
-            write("Error during file reception.");
+            write("Error during file reception: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
+    
+
+
+
+
     /**
-     * Sends a file to the client in packets, computing hashes for integrity checks.
-     * 
-     * @param dir               the directory containing the file
-     * @param requestedFileName the name of the file to send
-     * @return true if the file was sent successfully, false otherwise
-     * @throws IOException if an error occurs during file transfer
+     * Sends a file to the client, encrypting it using AES and providing hash-based integrity verification.
+     *
+     * @param dir           the directory containing the file to send
+     * @param fileName      the name of the file to be sent
+     * @param sessionAESKey the AES key used for encryption
+     * @param sessionIV     the initialization vector (IV) used for AES encryption
+     * @return true if the file is sent successfully, false otherwise
+     * @throws IOException if an error occurs during file transmission
      */
-    public boolean sendFile(File dir, String requestedFileName) throws IOException {
-        File file = new File(dir, requestedFileName);
+    public boolean sendFile(File dir, String fileName, SecretKey sessionAESKey, IvParameterSpec sessionIV) throws IOException {
+        // Locate the file to send
+        File file = new File(dir, fileName);
         if (!file.exists()) {
-            System.out.println("File Not Found");
             write("File Not Found.");
             return false;
         }
 
-        write("Ready");
-        System.out.println("File Found");
-        long totalSize = file.length();
-        dataOutputStream.writeLong(totalSize);
-        System.out.println("size = " + totalSize);
+        write("Ready"); // Notify the client that the server is ready to send the file
 
         try (RandomAccessFile randomAccessFile = new RandomAccessFile(file, "r")) {
-            MessageDigest messageDigest = MessageDigest.getInstance("SHA-256");
-            byte[] buffer = new byte[BUFFER_SIZE];
+            MessageDigest messageDigest = MessageDigest.getInstance("SHA-256"); // Prepare SHA-256 for hashing
+            byte[] buffer = new byte[BUFFER_SIZE]; // Buffer for reading file data
+            int bytesRead;
 
-            // Respond to client requests for packets
-            while (true) {
-                String clientRequest = dataInputStream.readUTF();
+            // Initialize AES cipher in encryption mode
+            Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
+            cipher.init(Cipher.ENCRYPT_MODE, sessionAESKey, sessionIV);
 
-                if (clientRequest.startsWith("REQUEST_PACKET")) {
-                    int packetIndex = Integer.parseInt(clientRequest.split(" ")[1]);
-                    long offset = (long) packetIndex * BUFFER_SIZE;
+            // Stream to hold encrypted data
+            ByteArrayOutputStream encryptedStream = new ByteArrayOutputStream();
 
-                    if (offset < totalSize) {
-                        int packetSize = (int) Math.min(BUFFER_SIZE, totalSize - offset);
-                        randomAccessFile.seek(offset);
-                        randomAccessFile.readFully(buffer, 0, packetSize);
+            // Read the file in chunks, encrypt, and update the hash
+            while ((bytesRead = randomAccessFile.read(buffer)) != -1) {
+                messageDigest.update(buffer, 0, bytesRead); // Update the hash with original file data
 
-                        // Compute hash for the packet
-                        messageDigest.update(buffer, 0, packetSize);
-                        String packetHash = Hasher.computeSHA256(buffer, 0, packetSize);
-
-                        // Send packet and hash
-                        dataOutputStream.write(buffer, 0, packetSize);
-                        dataOutputStream.writeUTF(packetHash);
-                    } else {
-                        dataOutputStream.writeUTF("INVALID_PACKET_INDEX");
-                    }
-                } else if (clientRequest.equals("TRANSFER_COMPLETE")) {
-                    byte[] fileHash = messageDigest.digest();
-                    dataOutputStream.writeUTF("FINAL_HASH " + Hasher.bytesToHex(fileHash));
-                    break;
+                // Encrypt the chunk and add it to the stream
+                byte[] encryptedChunk = cipher.update(buffer, 0, bytesRead);
+                if (encryptedChunk != null) {
+                    encryptedStream.write(encryptedChunk);
                 }
             }
+
+            // Finalize encryption to handle any remaining bytes
+            byte[] finalEncryptedChunk = cipher.doFinal();
+            if (finalEncryptedChunk != null) {
+                encryptedStream.write(finalEncryptedChunk);
+            }
+
+            // Convert encrypted stream to a byte array and send its size
+            byte[] encryptedData = encryptedStream.toByteArray();
+            long encryptedSize = encryptedData.length;
+            dataOutputStream.writeLong(encryptedSize);
+
+            // Send the encrypted file data to the client
+            dataOutputStream.write(encryptedData);
+
+            // Compute and send the hash of the original file
+            String finalHash = Hasher.bytesToHex(messageDigest.digest());
+            dataOutputStream.writeUTF(finalHash);
+
+            System.out.println("File sent successfully. Hash: " + finalHash);
             return true;
         } catch (Exception e) {
             System.err.println("Error during file transfer: " + e.getMessage());
@@ -227,6 +274,8 @@ public class FileManagerServer {
             return false;
         }
     }
+
+
 
     /**
      * Removes a file from the specified folder if it exists.

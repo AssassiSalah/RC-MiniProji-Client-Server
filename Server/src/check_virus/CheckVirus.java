@@ -37,8 +37,6 @@ public class CheckVirus {
                 System.out.println("Check With Windows Defender");
                 // Use Windows Defender to scan the file
                 return CheckWithDefender.scanFileWithDefender(file.getAbsolutePath()); // TODO: FIX THIS
-            } else if (CheckInternet.isOnline()) {
-            	return CheckWithAPI.isSafe(file);
             }
         } catch (Exception e) {
             // Handle exceptions during scanning

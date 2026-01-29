@@ -105,31 +105,11 @@ public class SQLiteDatabaseHandler {
         }
     }
     
-    public boolean removeSharedFile(String fileName) {
-        String sql = "DELETE FROM shared_files WHERE file_name = ?";
-        try (Connection conn = DriverManager.getConnection(DB_URL);
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setString(1, fileName);
-            int rowsAffected = pstmt.executeUpdate();
-            if (rowsAffected > 0) {
-                System.out.println("File removed from shared_files table: " + fileName);
-                return true;
-            } else {
-                System.out.println("No file found with the name: " + fileName);
-                return false;
-            }
-        } catch (SQLException e) {
-            System.err.println("Error removing shared file: " + e.getMessage());
-        }
-        return false;
-    }
-
-    
     public void listSharedFiles(PrintWriter writer) {
         String sql = "SELECT file_name, owner FROM shared_files";
         try (Connection conn = DriverManager.getConnection(DB_URL); 
         	 Statement stmt = conn.createStatement(); ResultSet rs = stmt.executeQuery(sql)) {
-            //writer.println("Shared Files:");
+            writer.println("Shared Files:");
             while (rs.next()) {
                 String fileName = rs.getString("file_name");
                 String owner = rs.getString("owner");
@@ -139,22 +119,6 @@ public class SQLiteDatabaseHandler {
         } catch (SQLException e) {
             writer.println("Error retrieving shared files: " + e.getMessage());
         }
-    }
-
-    public String searchFileOwner(String fileName) {
-        String sql = "SELECT owner FROM shared_files WHERE file_name = ?";
-        try (Connection conn = DriverManager.getConnection(DB_URL);
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setString(1, fileName);
-            try (ResultSet rs = pstmt.executeQuery()) {
-                if (rs.next()) {
-                    return rs.getString("owner");
-                }
-            }
-        } catch (SQLException e) {
-            System.err.println("Error retrieving owner for file: " + e.getMessage());
-        }
-        return null;
     }
 
 

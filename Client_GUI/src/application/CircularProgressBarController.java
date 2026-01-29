@@ -1,4 +1,4 @@
-package controller;
+package application;
 
 import javafx.fxml.FXML;
 import javafx.scene.control.Label;
@@ -12,14 +12,16 @@ public class CircularProgressBarController {
     double progress=0;
     private double totalSize = 0; // Total file size in KB
     private long startTime=0; // Start time in milliseconds
+    // private long lastUpdateTime; // Last time progress was updated
+    private double lastSize; // File size at the last update
     private long lastBatchTime = 0; // To store the timestamp of the last packet batch
     private double averageTimeBetweenUpdates = 0; // To store the average time between updates
 
     public void initialize(double totalSize_) {
-    	circularProgressBar.getScene().getRoot().setDisable(true);
         System.out.println("Start: ");
         totalSize = totalSize_/1024;
         startTime = System.currentTimeMillis();
+        lastSize = 0;
         circularProgressBar.setProgress(0.0);
 
         // Initialize progress bar and labels
@@ -64,7 +66,7 @@ public void update(double currentSize, double timeBetweenPacket) {
 
         // Display average speed and time
         //System.out.printf("Average Time Between Updates: %.2f ms%n", averageTimeBetweenUpdates);
-        //System.out.printf("Current Speed: %.2f MB/sec%n", currentSpeed);
+       // System.out.printf("Current Speed: %.2f MB/sec%n", currentSpeed);
 
         // Update UI elements for speed and remaining time
         speedTransferLabel.setText(String.format("%.1f MB/sec", currentSpeed));

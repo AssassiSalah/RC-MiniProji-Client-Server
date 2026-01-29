@@ -8,39 +8,39 @@
 <?import javafx.scene.layout.VBox?>
 <?import javafx.scene.text.Font?>
 
-<!-- Main StackPane -->
 
-<VBox alignment="CENTER" prefHeight="550.0" prefWidth="650.0" spacing="20" xmlns="http://javafx.com/javafx/22" xmlns:fx="http://javafx.com/fxml/1" fx:controller="application.CircularProgressBarController">
+ <!-- Main StackPane -->
+ <VBox alignment="CENTER" prefHeight="550.0" prefWidth="650.0" spacing="20" xmlns="http://javafx.com/javafx/22" xmlns:fx="http://javafx.com/fxml/1" fx:controller="application.CircularProgressBarController">
    <children>
       <HBox alignment="CENTER" prefHeight="100.0" prefWidth="200.0" spacing="35.0">
          <children>
             <VBox alignment="CENTER" prefWidth="150.0">
                <children>
-                  <Label text="Current Size" textFill="WHITE">
+                  <Label text="Current Size">
                      <font>
                         <Font size="25.0" />
                      </font>
                   </Label>
-                  <Label fx:id="currentSizeLabel" text="0 KB" textFill="WHITE">
+                     <Label fx:id="currentSizeLabel" text="0 KB">
                      <font>
                         <Font size="25.0" />
                      </font>
                   </Label>
                </children>
             </VBox>
-            <Label text="Progress Circule" textFill="WHITE">
+            <Label text="Progress Circule">
                <font>
                   <Font name="System Bold" size="36.0" />
                </font>
             </Label>
             <VBox alignment="CENTER" prefWidth="150.0">
                <children>
-                  <Label text="Total Size" textFill="WHITE">
+                  <Label text="Total Size">
                      <font>
                         <Font size="25.0" />
                      </font>
                   </Label>
-                  <Label fx:id="totalSizeLabel" text="1000 KB" textFill="WHITE">
+                     <Label fx:id="totalSizeLabel" text="1000 KB">
                      <font>
                         <Font size="25.0" />
                      </font>
@@ -49,7 +49,7 @@
             </VBox>
          </children>
       </HBox>
-      <Label alignment="CENTER" prefWidth="650.0" text="Name File" textFill="WHITE">
+      <Label alignment="CENTER" prefWidth="650.0" text="Name File">
          <font>
             <Font size="25.0" />
          </font>
@@ -58,36 +58,37 @@
          <children>
             <VBox alignment="CENTER">
                <children>
-                  <Label text="Current Time" textFill="WHITE">
+                  <Label text="Current Time">
                      <font>
                         <Font size="25.0" />
                      </font>
                   </Label>
-                  <Label fx:id="currentTimeLabel" text="0 sec" textFill="WHITE">
+                     <Label fx:id="currentTimeLabel" text="0 sec">
                      <font>
                         <Font size="25.0" />
                      </font>
                   </Label>
                </children>
             </VBox>
-            <StackPane>
-               <children>
+              <!-- Circular Progress Bar and Percentage -->
+              <StackPane>
+                  <!-- Circular Progress Bar -->
                   <ProgressIndicator fx:id="circularProgressBar" minHeight="250.0" minWidth="250.0" />
+                  <!-- Percentage Label -->
                   <Label fx:id="percentageLabel" alignment="CENTER" prefHeight="150.0" prefWidth="150.0" style="-fx-font-size: 24px; -fx-font-weight: bold; -fx-background-color: white; -fx-background-radius: 100;" text="0%">
-                     <StackPane.margin>
-                        <Insets bottom="10.0" />
-                     </StackPane.margin>
-                  </Label>
-               </children>
-            </StackPane>
+                  <StackPane.margin>
+                     <Insets bottom="10.0" />
+                  </StackPane.margin>
+               </Label>
+              </StackPane>
             <VBox alignment="CENTER">
                <children>
-                  <Label text="Remaining Time" textFill="WHITE">
+                  <Label text="Remaining Time">
                      <font>
                         <Font size="25.0" />
                      </font>
                   </Label>
-                  <Label fx:id="remainTimeLabel" text="N/A" textFill="WHITE">
+                     <Label fx:id="remainTimeLabel" text="N/A">
                      <font>
                         <Font size="25.0" />
                      </font>
@@ -98,12 +99,12 @@
       </HBox>
       <VBox alignment="CENTER">
          <children>
-            <Label text="Speed" textFill="WHITE">
+            <Label text="Speed">
                <font>
                   <Font size="25.0" />
                </font>
             </Label>
-            <Label fx:id="speedTransferLabel" text="0 KB/sec" textFill="WHITE">
+               <Label fx:id="speedTransferLabel" text="0 KB/sec">
                <font>
                   <Font size="25.0" />
                </font>
@@ -111,4 +112,4 @@
          </children>
       </VBox>
    </children>
-</VBox>
+ </VBox>

@@ -5,10 +5,19 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.PublicKey;
+import java.util.Base64;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
+
+import javax.crypto.Cipher;
+import javax.crypto.SecretKey;
+import javax.crypto.spec.IvParameterSpec;
+import javax.crypto.spec.SecretKeySpec;
 
 import util.Hasher;
 
@@ -25,6 +34,11 @@ public class AuthenticatedFileServer {
 
 	private int port;
 	private SQLiteDatabaseHandler dbHandler;
+	private KeyPair keyPair; // Server-side key pair
+	private SecretKey sessionAESKey; // AES Key for the session
+	private IvParameterSpec sessionIV; // IV for the session
+
+
 	//private Map<String, String> users;
 
 	/**
@@ -36,7 +50,7 @@ public class AuthenticatedFileServer {
 		this.port = port;
 		dbHandler = new SQLiteDatabaseHandler();
 		dbHandler.createSharedFilesTable();
-		//users = FileManagerServer.getUsers(); // Replace with DB in production
+		initializeKeyPair();
 		FileManagerServer.createIfNotExist(AppConst.PATH_PROJECT);
 		FileManagerServer.createIfNotExist(AppConst.PATH_SERVER);
 	}
@@ -79,6 +93,17 @@ public class AuthenticatedFileServer {
 			}
 		}
 	}
+	
+	private void initializeKeyPair() {
+	    try {
+	        KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("RSA");
+	        keyPairGenerator.initialize(2048); // 2048-bit RSA key, size can be 2,048 to 4,096 bit
+	        keyPair = keyPairGenerator.generateKeyPair();
+	        System.out.println("Server RSA key pair generated.");
+	    } catch (Exception e) {
+	        e.printStackTrace();
+	    }
+	}
 
 	/**
 	 * Handles the communication with a connected client. Processes commands such as
@@ -99,7 +124,6 @@ public class AuthenticatedFileServer {
 			while (true) {
 				String command = reader.readLine(); // Read client command
 				System.out.println("Client: " + username + " Command: " + command);
-				
 				switch (command) {
 				case "LOG_IN":
 					// Log in the user and authenticate
@@ -124,7 +148,7 @@ public class AuthenticatedFileServer {
 					// Handle file upload
 					String fileName = reader.readLine();
 					String visibility = reader.readLine();
-					fileManager.receiveFile(userDir, fileName, username, dbHandler, visibility);
+					fileManager.receiveFile(userDir, fileName, username, dbHandler, visibility, sessionAESKey, sessionIV);
 					break;
 				case "LIST_FILES_USER":
 					// List files of the user
@@ -136,24 +160,11 @@ public class AuthenticatedFileServer {
 					listFilesShared(writer);
 					dbHandler.logCommand(username, "LIST_FILES_SHARED", "_", null, true);
 					break;
-				case "CHANGE_VISIBILITY":
-					// Change The Visibility Of The File
-					String visibilityFileName = reader.readLine();
-					if(dbHandler.searchFileOwner(visibilityFileName) != null) { // public
-						dbHandler.removeSharedFile(visibilityFileName); // make it private
-						visibility = "private";
-					} else {
-						dbHandler.addSharedFile(visibilityFileName, username);
-						visibility = "public";
-					}
-					
-					dbHandler.logCommand(username, "CHANGE_VISIBILITY", visibilityFileName, visibility.equals("public"), true);
-					break;
 				case "DOWNLOAD":
 					// Handle file download
 					String requestedFileName_DOWNLOAD = reader.readLine();
 					System.out.println("File Name : " + requestedFileName_DOWNLOAD);
-					if(fileManager.sendFile(userDir, requestedFileName_DOWNLOAD)) {
+					if(fileManager.sendFile(userDir, requestedFileName_DOWNLOAD, sessionAESKey, sessionIV)) {
 						dbHandler.updateFileTransferStats(username, false, 1); // Update received files count
 					    dbHandler.logCommand(username, "DOWNLOAD", requestedFileName_DOWNLOAD, true, true);
 					} else {
@@ -163,13 +174,9 @@ public class AuthenticatedFileServer {
 				case "ADVANCE_DOWNLOAD":
 					// Handle advanced file search and download
 					String requestedFileName_Search = reader.readLine();
-					String owner = dbHandler.searchFileOwner(requestedFileName_Search);
-					if (owner != null) {
-                        writer.println("File Exists.");
-						fileManager.sendFile(new File(AppConst.PATH_SERVER, owner), requestedFileName_Search);
-					} else
-						writer.println("File Doesn't Exist.");
-					
+					String whoHaveFile = fileManager.searchInCollaboration(requestedFileName_Search);
+					if (!whoHaveFile.isEmpty())
+						fileManager.sendFile(new File(AppConst.PATH_SERVER, whoHaveFile), requestedFileName_Search, sessionAESKey, sessionIV);
 					break;
 				case "REMOVE":
 					// Handle file removal
@@ -210,98 +217,78 @@ public class AuthenticatedFileServer {
 
 	        if (dbHandler.authenticateUser(username, hashedPassword)) {
 	            dbHandler.updateUserConnection(username, clientIP, true);
-	        	System.out.println("Authentication Successful. Welcome: " + username);
+	            System.out.println("Authentication Successful. Welcome: " + username);
+
+	         // Send success message to the client after authentication
 	            writer.println("Authentication Successful. Welcome: " + username);
+
+	            // Step 1: Send Server's RSA Public Key to Client
+	            // The server retrieves its RSA public key from the existing key pair.
+	            PublicKey publicKey = keyPair.getPublic(); // keyPair has been generated earlier.
+
+	            // Encode the public key in Base64 to prepare it for transmission to the client.
+	            String encodedPublicKey = Base64.getEncoder().encodeToString(publicKey.getEncoded());
+	            writer.println(encodedPublicKey); // Send the encoded public key to the client.
+
+
+	            // Step 2: Receive Encrypted AES Key and IV from the Client
+	            // The client sends the AES key and IV, both encrypted with the server's public key.
+	            String encryptedAESKey = reader.readLine(); // Read the encrypted AES key
+	            String encryptedIV = reader.readLine(); // Read the encrypted IV
+
+	            // Step 3: Decrypt AES Key and IV Using Server's RSA Private Key
+	            // Initialize the RSA cipher in decryption mode with the server's private key.
+	            Cipher rsaCipher = Cipher.getInstance("RSA");
+	            rsaCipher.init(Cipher.DECRYPT_MODE, keyPair.getPrivate());
+
+	            // Decrypt the Base64-encoded AES key and IV to retrieve their original byte forms.
+	            byte[] aesKeyBytes = rsaCipher.doFinal(Base64.getDecoder().decode(encryptedAESKey));
+	            byte[] ivBytes = rsaCipher.doFinal(Base64.getDecoder().decode(encryptedIV));
+
+	            // Step 4: Create AES Key and IV Objects for Session
+	            // Use the decrypted AES key bytes to create a SecretKeySpec for AES encryption/decryption.
+	            sessionAESKey = new SecretKeySpec(aesKeyBytes, "AES");
+
+	            // Use the decrypted IV bytes to create an IvParameterSpec for AES encryption/decryption.
+	            sessionIV = new IvParameterSpec(ivBytes);
+
+	            System.out.println("AES Key and IV successfully received and decrypted.");
+
 	            
 	            Map<String, Object> userDetails = dbHandler.getUserDetails(username);
-	            // Iterate over the map entries
-	            for (Map.Entry<String, Object> entry : userDetails.entrySet()) {
-	                String key = entry.getKey();
-	                Object value = entry.getValue();
-	                
-	                // Print the key and determine the type of the value
-	                System.out.print("Key: " + key + ", Value: ");
-	                if (value instanceof Integer) {
-	                    System.out.println("Integer: " + value);
-	                } else if (value instanceof String) {
-	                    System.out.println("String: " + value);
-	                } else if (value instanceof Double) {
-	                    System.out.println("Double: " + value);
-	                } else if (value instanceof Boolean) {
-	                    System.out.println("Boolean: " + value);
-	                } else {
-	                    System.out.println("Unknown type: " + value);
-	                }
-	            }
+	             // Iterate over the map entries
+	             for (Map.Entry<String, Object> entry : userDetails.entrySet()) {
+		                String key = entry.getKey();
+		                Object value = entry.getValue();
+		                
+		                // Print the key and determine the type of the value
+		                System.out.print("Key: " + key + ", Value: ");
+		                if (value instanceof Integer) {
+		                    System.out.println("Integer: " + value);
+		                } else if (value instanceof String) {
+		                    System.out.println("String: " + value);
+		                } else if (value instanceof Double) {
+		                    System.out.println("Double: " + value);
+		                } else if (value instanceof Boolean) {
+		                    System.out.println("Boolean: " + value);
+		                } else {
+		                    System.out.println("Unknown type: " + value);
+		                }
+		            }
 	            return username;
 	        } else {
 	            writer.println("Authentication Failed");
 	            return "";
 	        }
-	    } catch (IOException e) {
+	    } catch (Exception e) {
 	        writer.println("Authentication Failed");
+	        e.printStackTrace();
 	        return "";
 	    }
 	}
 
-	// Method to register a new client account
-	// It reads the username and password from the client, validates them, and
-	// registers the client if the data is valid.
-	/*private String registerNewClient(BufferedReader reader, PrintWriter writer) {
-		// Validate the username and password (basic validation)
-		String username = null;
-		String password = null;
 
-		try {
-			// Reading username and password from the client
-			username = reader.readLine(); // Reading username
-			password = reader.readLine(); // Reading password
-		} catch (EOFException e) {
-			// Handles unexpected EOF during reading
-			System.err.println("Error: Reached the end of the stream unexpectedly.");
-			writer.println("Register Failed");
-			return ""; // Return empty string if data could not be read
-		} catch (IOException e) {
-			// Handles I/O errors during reading
-			System.err.println("I/O error occurred while reading data.");
-			writer.println("Register Failed");
-			return ""; // Return empty string in case of I/O error
-		} catch (NullPointerException e) {
-			// Handles null pointer exceptions during reading
-			System.err.println("Error: DataInputStream is not initialized.");
-			writer.println("Register Failed");
-			return ""; // Return empty string if stream is null
-		} catch (Exception e) {
-			// Catches any unexpected exceptions
-			System.err.println("Unexpected error occurred: " + e.getMessage());
-			writer.println("Register Failed");
-			return ""; // Return empty string for unexpected errors
-		}
-
-		// Basic validation for username and password
-		if (username.isEmpty() || password.isEmpty()) {
-			// Username or password cannot be empty
-			System.out.println("Error: Username or password cannot be empty.");
-			writer.println("Register Failed");
-			return ""; // Return empty string if validation fails
-		}
-
-		// Check if the username already exists
-		if (users.containsKey(username)) {
-			// Handle case where username already exists
-			System.out.println("Error: Username already exists.");
-			writer.println("Register Failed");
-			return ""; // Return empty string if username already exists
-		}
-
-		// Register the new user (assuming you have a HashMap to store users)
-		users.put(username, password); // Store the username and password (this could be improved to hash passwords)
-		// TODO: Store in the database instead of HashMap
-		System.out.println("User registered successfully.");
-
-		writer.println("Register Success");
-		return username; // Return username if registration is successful
-	}*/
+	
 	private String registerNewClient(BufferedReader reader, PrintWriter writer) {
 		
 		// Validate the username and password (basic validation)

@@ -4,14 +4,19 @@
  */
 package protocol;
 
+import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.concurrent.atomic.AtomicLong;
+
+import javax.crypto.Cipher;
+import javax.crypto.SecretKey;
+import javax.crypto.spec.IvParameterSpec;
 
 import application.AppConst;
 import application.Load_Interfaces;
@@ -22,6 +27,8 @@ public class FileManagerClient {
     private Communication communication_Manager;
     private DataInputStream dataInputStream;
     private DataOutputStream dataOutputStream;
+    private SecretKey sessionAESKey; // AES Key for the session
+    private IvParameterSpec sessionIV;
     private int BUFFER_SIZE = 16384; //8192;
 
     /**
@@ -41,7 +48,15 @@ public class FileManagerClient {
             downloadDir.mkdirs();
     }
 
-    /**
+    public void setSessionAESKey(SecretKey sessionAESKey) {
+		this.sessionAESKey = sessionAESKey;
+	}
+
+	public void setSessionIV(IvParameterSpec sessionIV) {
+		this.sessionIV = sessionIV;
+	}
+
+	/**
      * Reads a message from the server using the communication manager.
      *
      * @return the message received from the server.
@@ -65,70 +80,83 @@ public class FileManagerClient {
     
     
     /**
-     * Downloads a file from the server asynchronously.
+     * Downloads a file from the server asynchronously, decrypts it, and verifies its integrity using SHA-256.
      *
      * @param fileName the name of the file to be downloaded.
      * @throws IOException              if an I/O error occurs during file download.
      * @throws NoSuchAlgorithmException if SHA-256 is not supported.
      */
-    public void downloadFile(String fileName, boolean advance) throws IOException, NoSuchAlgorithmException {
+    public void downloadFile(String fileName) throws IOException, NoSuchAlgorithmException {
+        // Create a File object for the downloaded file at the default download path
         File downloadedFile = new File(AppConst.DEFAULT_DOWNLOAD_PATH, fileName);
-        
-        write("Ready");
 
-        // Read total file size from the server
-        long totalSize = dataInputStream.readLong();
-        System.out.println("Size... " + totalSize);
-        if (totalSize <= 0) {
-            throw new IOException("Invalid file size received.");
+        // Read the size of the encrypted file from the server
+        long encryptedSize = dataInputStream.readLong();
+        System.out.println("Encrypted size... " + encryptedSize);
+        if (encryptedSize <= 0) {
+            throw new IOException("Invalid encrypted size received.");
         }
 
+        // Initialize SHA-256 for hashing
         MessageDigest messageDigest = MessageDigest.getInstance("SHA-256");
+        AtomicLong currentSize = new AtomicLong(0); // Tracks the number of bytes received
 
-        // Asynchronous download task
+        // Asynchronous task for downloading and decrypting the file
         Task<Void> downloadTask = new Task<>() {
             @Override
             protected Void call() throws Exception {
                 System.out.println("Starting download...");
 
                 try (RandomAccessFile fileOut = new RandomAccessFile(downloadedFile, "rw")) {
-                    fileOut.setLength(totalSize); // Preallocate space for the file
-
-                    byte[] buffer = new byte[BUFFER_SIZE];
+                    byte[] buffer = new byte[BUFFER_SIZE]; // Buffer for reading encrypted data
                     int bytesRead;
-                    long currentSize = 0;
-                    long startMillis = System.currentTimeMillis();
+                    long startMillis = System.currentTimeMillis(); // Track start time for progress updates
 
-                    communication_Manager.startProgressTimer(totalSize);
+                    // Initialize AES cipher in decryption mode
+                    Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
+                    cipher.init(Cipher.DECRYPT_MODE, sessionAESKey, sessionIV);
 
-                    while (currentSize < totalSize) {
-                        // Adjust buffer size for the last chunk
-                        int remainingBytes = (int) Math.min(buffer.length, totalSize - currentSize);
+                    // Start the progress timer for the UI
+                    communication_Manager.startProgressTimer(encryptedSize);
+
+                    while (currentSize.get() < encryptedSize) {
+                        // Read the next chunk of encrypted data
+                        int remainingBytes = (int) Math.min(buffer.length, encryptedSize - currentSize.get());
                         bytesRead = dataInputStream.read(buffer, 0, remainingBytes);
 
+                        // Handle unexpected end of stream
                         if (bytesRead == -1) {
-                            throw new IOException("Unexpected end of stream.");
+                            throw new IOException("Unexpected end of stream before file completion.");
                         }
 
-                        // Write to file and update hash
-                        fileOut.write(buffer, 0, bytesRead);
-                        messageDigest.update(buffer, 0, bytesRead);
-                        currentSize += bytesRead;
+                        // Decrypt the chunk and write it to the file
+                        byte[] decryptedChunk = cipher.update(buffer, 0, bytesRead);
+                        if (decryptedChunk != null) {
+                            fileOut.write(decryptedChunk);
+                            messageDigest.update(decryptedChunk); // Update the hash with the decrypted data
+                        }
 
-                        // Log progress
-                        if (currentSize % 10_000 == 0) {
-                            double progress = (double) currentSize / totalSize;
+                        // Update the size of encrypted data received
+                        currentSize.addAndGet(bytesRead);
+
+                        // Update progress every 10KB
+                        if (currentSize.get() % 10_000 == 0) {
                             long elapsedMillis = System.currentTimeMillis() - startMillis;
-                            communication_Manager.updateProgressTimer(currentSize / 1024, elapsedMillis);
-
-                            System.out.printf("Downloaded %.2f%%%n", progress * 100);
+                            communication_Manager.updateProgressTimer(currentSize.get() / 1024, elapsedMillis);
+                            System.out.printf("Progress: %.2f%%%n", (double) currentSize.get() / encryptedSize * 100);
                         }
                     }
 
-                    // Validate file hash
+                    // Finalize decryption for any remaining bytes
+                    byte[] finalDecryptedChunk = cipher.doFinal();
+                    if (finalDecryptedChunk != null) {
+                        fileOut.write(finalDecryptedChunk);
+                        messageDigest.update(finalDecryptedChunk);
+                    }
+
+                    // Validate the file hash against the server's hash
                     String finalHash = dataInputStream.readUTF();
                     String calculatedHash = Hasher.bytesToHex(messageDigest.digest());
-
                     if (!finalHash.equals(calculatedHash)) {
                         throw new IOException("File hash mismatch! Expected: " + finalHash + ", Calculated: " + calculatedHash);
                     }
@@ -137,137 +165,31 @@ public class FileManagerClient {
                 } catch (IOException e) {
                     System.err.println("Download failed: " + e.getMessage());
                     throw e;
+                } finally {
+                    // Stop the progress timer
+                    communication_Manager.stopCircleProgressD();
                 }
 
-                communication_Manager.stopCircleProgress(advance);
                 return null;
             }
         };
 
-        // Start download task in a new thread
+        // Run the download task in a separate thread
         new Thread(downloadTask).start();
     }
-    
-    /**
-     * Downloads a file from the server asynchronously.
-     *
-     * @param fileName the name of the file to be downloaded.
-     * @throws NoSuchAlgorithmException if SHA-256 is not supported.
-     * @throws IOException              if an I/O error occurs during file download.
-     */
-    /*public void downloadFile(String fileName) throws NoSuchAlgorithmException, IOException {
-        File downloadedFile = new File(AppConst.DEFAULT_DOWNLOAD_PATH, fileName);
 
-        long totalSize = dataInputStream.readLong();
 
-        // Task for downloading the file asynchronously
-        Task<Void> downloadTask = new Task<>() {
-            @Override
-            protected Void call() throws IOException, NoSuchAlgorithmException {
-                System.out.println("Starting download...");
-
-                MessageDigest messageDigest;
-                try {
-                    messageDigest = MessageDigest.getInstance("SHA-256");
-                } catch (NoSuchAlgorithmException e) {
-                    System.err.println("SHA-256 is not available.");
-                    throw e;
-                }
-
-                AtomicLong currentSize = new AtomicLong(0);
-
-                try (RandomAccessFile fileOut = new RandomAccessFile(downloadedFile, "rw")) {
-                    fileOut.setLength(totalSize);
-
-                    long packetCount = (long) Math.ceil((double) totalSize / BUFFER_SIZE);
-                    long currentPacket = 0;
-
-                    long startMillis = System.currentTimeMillis();
-                    long endMillis;
-
-                    communication_Manager.startProgressTimer(totalSize);
-
-                    while (currentPacket < packetCount) {
-                        dataOutputStream.writeUTF("REQUEST_PACKET " + currentPacket);
-
-                        byte[] buffer = new byte[BUFFER_SIZE];
-                        int bytesRead = dataInputStream.read(buffer);
-                        if (bytesRead == -1) break;
-
-                        byte[] packet = Arrays.copyOf(buffer, bytesRead);
-                        String receivedHash = dataInputStream.readUTF();
-
-                        String calculatedHash = Hasher.computeSHA256(packet);
-                        if (receivedHash.equals(calculatedHash)) {
-                            fileOut.seek(currentPacket * BUFFER_SIZE);
-                            fileOut.write(packet);
-                            currentPacket++;
-
-                            // Update current size and progress
-                            currentSize.addAndGet(bytesRead);
-                            messageDigest.update(buffer, 0, bytesRead);
-
-                            endMillis = System.currentTimeMillis();
-
-                            // Log progress every 10 KB
-                            if (currentSize.get() % 10_000 == 0) {
-                                double progress = (double) currentSize.get() / totalSize;
-                                communication_Manager.updateProgressTimer(currentSize.get() / 1024, endMillis - startMillis);
-
-                                System.out.printf("Packet %d downloaded: %.2f%%%n", currentPacket, progress * 100);
-                            }
-                        } else {
-                            System.err.println("Hash mismatch for packet " + currentPacket + ". Retrying...");
-                        }
-                    }
-
-                    dataOutputStream.writeUTF("TRANSFER_COMPLETE");
-                    String finalHash = dataInputStream.readUTF();
-                    System.out.println("Final file hash received: " + finalHash);
-
-                    // Verify final hash
-                    byte[] calculatedHash = messageDigest.digest();
-                    String calculatedFileHash = Hasher.bytesToHex(calculatedHash);
-
-                    if (!calculatedFileHash.equals(finalHash)) {
-                        System.err.println("File hash mismatch! Expected: " + finalHash + ", Calculated: " + calculatedFileHash);
-                    }
-
-                    System.out.println("File downloaded successfully.");
-                } catch (IOException | NoSuchAlgorithmException e) {
-                    System.err.println("Download failed: " + e.getMessage());
-                    dataOutputStream.writeUTF("DOWNLOAD_FAILED");
-                    throw e;
-                }
-                return null;
-            }
-        };
-
-        Platform.runLater(() -> {
-            downloadTask.setOnSucceeded(event -> {
-                System.out.println("Download Task completed successfully.");
-                communication_Manager.stopCircleProgressD();
-            });
-
-            downloadTask.setOnFailed(event -> {
-                System.err.println("Download Task failed.");
-                communication_Manager.stopCircleProgressD();
-            });
-
-            new Thread(downloadTask).start();
-        });
-    }*/
     
 
-
     /**
-     * Uploads a file to the server asynchronously.
+     * Uploads a file to the server asynchronously, encrypts it, and sends its hash for integrity verification.
      *
      * @param file      the file to be uploaded.
      * @param totalSize the total size of the file in bytes.
      * @throws IOException if an I/O error occurs during file upload.
      */
     public void uploadFile(File file, long totalSize) throws IOException {
+        // Initialize SHA-256 for hashing
         MessageDigest messageDigest;
         try {
             messageDigest = MessageDigest.getInstance("SHA-256");
@@ -276,68 +198,94 @@ public class FileManagerClient {
             return;
         }
 
-        dataOutputStream.writeLong(totalSize);
+        AtomicLong currentSize = new AtomicLong(0); // Tracks the number of bytes uploaded
 
+        // Asynchronous task for uploading and encrypting the file
         Task<Void> uploadTask = new Task<>() {
             @Override
             protected Void call() throws Exception {
-                System.out.println("start to upload ");
+                System.out.println("Starting upload...");
 
-                try (FileInputStream fileInputStream = new FileInputStream(file)) {
-                    byte[] buffer = new byte[BUFFER_SIZE];
+                try (RandomAccessFile fileInput = new RandomAccessFile(file, "r");
+                     ByteArrayOutputStream encryptedStream = new ByteArrayOutputStream()) {
+
+                    byte[] buffer = new byte[BUFFER_SIZE]; // Buffer for reading file data
                     int bytesRead;
-                    long currentSize = 0;
-                    int currentPacket = 0; 
-                    
-                    long startMillis = System.currentTimeMillis();
 
+                    // Initialize AES cipher in encryption mode
+                    Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
+                    cipher.init(Cipher.ENCRYPT_MODE, sessionAESKey, sessionIV);
+
+                    // Start the progress timer for the UI
                     communication_Manager.startProgressTimer(totalSize);
-                    while (currentSize < totalSize) {
-                        bytesRead = fileInputStream.read(buffer);
+
+                    while (currentSize.get() < totalSize) {
+                        // Read the next chunk of file data
+                        bytesRead = fileInput.read(buffer);
                         if (bytesRead == -1) {
-                            break;
+                            break; // End of file
                         }
 
-                        dataOutputStream.write(buffer, 0, bytesRead);
+                        // Encrypt the chunk and write it to the encrypted stream
+                        byte[] encryptedChunk = cipher.update(buffer, 0, bytesRead);
+                        if (encryptedChunk != null) {
+                            encryptedStream.write(encryptedChunk);
+                        }
+
+                        // Update the hash with the original chunk
                         messageDigest.update(buffer, 0, bytesRead);
-                        currentSize += bytesRead;
 
-                        if (++currentPacket % 500 == 0) {
-                            communication_Manager.updateProgressTimer(currentSize / 1024, System.currentTimeMillis() - startMillis);
+                        // Update the size of file data processed
+                        currentSize.addAndGet(bytesRead);
 
-                            double progress = (double) currentSize / totalSize;
-                            System.out.printf("Chunk %d uploaded: %.2f%%%n", currentPacket, progress * 100);
+                        // Update progress every 10KB
+                        long elapsedMillis = System.currentTimeMillis();
+                        if (currentSize.get() % 10_000 == 0) {
+                            communication_Manager.updateProgressTimer(currentSize.get() / 1024, elapsedMillis);
+
+                            double progress = (double) currentSize.get() / totalSize;
+                            System.out.printf("Progress: %.2f%%%n", progress * 100);
                         }
                     }
 
-                    dataOutputStream.flush();
-
-                    byte[] calculatedHash = messageDigest.digest();
-                    StringBuilder hashBuilder = new StringBuilder();
-                    for (byte b : calculatedHash) {
-                        hashBuilder.append(String.format("%02x", b));
+                    // Finalize encryption for any remaining bytes
+                    byte[] finalEncryptedChunk = cipher.doFinal();
+                    if (finalEncryptedChunk != null) {
+                        encryptedStream.write(finalEncryptedChunk);
                     }
 
-                    String fileHash = hashBuilder.toString();
-                    System.out.println("Calculated Hash: " + fileHash);
+                    // Send the size of the encrypted data to the server
+                    byte[] encryptedData = encryptedStream.toByteArray();
+                    long encryptedSize = encryptedData.length;
+                    dataOutputStream.writeLong(encryptedSize);
 
-                    //write("File uploaded. Hash: " + fileHash);
-                    System.out.println("File uploaded. Hash: " + fileHash);
+                    // Send the encrypted data
+                    dataOutputStream.write(encryptedData);
 
-                    System.out.println("File uploaded successfully.");
+                    // Send the calculated hash to the server
+                    String fileHash = Hasher.bytesToHex(messageDigest.digest());
+                    dataOutputStream.writeUTF(fileHash);
 
+                    System.out.println("File uploaded successfully. Hash: " + fileHash);
                 } catch (Exception e) {
+                    System.err.println("Upload failed: " + e.getMessage());
                     e.printStackTrace();
+                } finally {
+                    // Stop the progress timer
+                    communication_Manager.stopCircleProgressU();
                 }
-                communication_Manager.stopCircleProgressU();
+
                 return null;
             }
         };
 
+        // Run the upload task in a separate thread
         new Thread(uploadTask).start();
     }
-    
-    
+
+
+
+
 
     /**
      * Requests the server to remove a file.

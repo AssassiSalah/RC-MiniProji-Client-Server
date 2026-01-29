@@ -1,13 +1,13 @@
 package controller;
 
-import application.AppConst;
 import application.Load_Interfaces;
-
+import application.Main;
 import javafx.fxml.FXML;
 import javafx.scene.control.Button;
 import javafx.scene.control.Tooltip;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
+import protocol.Communication;
 
 public class Top {
 
@@ -37,7 +37,7 @@ public class Top {
 
 	@FXML
 	private void connect() {
-		AppConst.communication_Manager.connect();;
+		Main.communication_Manager = new Communication();
 	}
 
 	@FXML
@@ -51,7 +51,7 @@ public class Top {
 
 		// disconnected();
 		
-		AppConst.communication_Manager.disconnect();
+		Main.communication_Manager.disconnect();
 		
 		Load_Interfaces.displayLogIn();
 		

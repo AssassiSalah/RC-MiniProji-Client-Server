@@ -7,9 +7,11 @@ import protocol.Communication;
 
 public class Main extends Application {
 
+	public static Communication communication_Manager;
+
 	@Override
     public void start(Stage primaryStage) {
-		AppConst.communication_Manager = new Communication();
+		communication_Manager = new Communication();
 		
 		new Load_Interfaces(primaryStage);
     }
