@@ -3,9 +3,10 @@ package server;
 import java.io.*;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.HashMap;
+import java.util.Map;
 
 import check_virus.CheckVirus;
-
 import util.Hasher;
 
 /**
@@ -19,11 +20,7 @@ public class FileManagerServer {
     private BufferedReader reader;
     private PrintWriter writer;
 
-    private static final int BUFFER_SIZE = 16384; // Buffer size for file transfer 4KB 4096
-    											  // 8 KB 8192;
-    											  // 16 KB 16384;
-    											  // 64 KB 65536;
-    											  // 128 KB 131072;
+    private static final int BUFFER_SIZE = 8192; // Buffer size for file transfer
 
     /**
      * Constructs a FileManager object with the necessary I/O streams.
@@ -38,6 +35,26 @@ public class FileManagerServer {
         this.dataOutputStream = dataOutputStream;
         this.reader = reader;
         this.writer = writer;
+    }
+
+    /**
+     * Mimics a database by returning a map of hardcoded user credentials.
+     * Hashes passwords and creates user directories if not already present.
+     * 
+     * @return a map of usernames to hashed passwords
+     */
+    public static Map<String, String> getUsers() {
+        Map<String, String> users = new HashMap<>();
+        // Sample user credentials
+        users.put("admin", Hasher.hashPassword("admin"));
+        createIfNotExist("admin");
+        users.put("1", Hasher.hashPassword("1"));
+        createIfNotExist("1");
+        users.put("user1", Hasher.hashPassword("pass1"));
+        createIfNotExist("user1");
+        users.put("user2", Hasher.hashPassword("pass2"));
+        createIfNotExist("user2");
+        return users;
     }
 
     /**
@@ -77,14 +94,13 @@ public class FileManagerServer {
     }
 
     /**
-     * while (currentSize < totalSize && (bytesRead = dataInputStream.read(buffer, 0, Math.min(buffer.length, (int)(totalSize - currentSize)))) != -1)
      * Handles the upload of a file from the client, verifying its integrity using SHA-256.
-     *
+     * 
      * @param dir      the directory to save the file in
      * @param fileName the name of the file being uploaded
      * @throws IOException if an error occurs during file transfer
      */
-    public void receiveFile(File dir, String fileName, String username, SQLiteDatabaseHandler dbHandler, String visibility) throws IOException {
+    public void receiveFile(File dir, String fileName) throws IOException {
         File newFile = new File(dir, fileName);
         MessageDigest messageDigest;
 
@@ -110,12 +126,11 @@ public class FileManagerServer {
             return;
         }
 
+        long currentSize = 0;
 
         try (RandomAccessFile randomAccessFile = new RandomAccessFile(newFile, "rw")) {
-            byte[] buffer = new byte[BUFFER_SIZE];
+            byte[] buffer = new byte[4096];
             int bytesRead;
-            long currentSize = 0;
-            int currentPacket = 0;
 
             // Loop to read file data in chunks
             while (currentSize < totalSize && (bytesRead = dataInputStream.read(buffer)) != -1) {
@@ -123,27 +138,16 @@ public class FileManagerServer {
                 messageDigest.update(buffer, 0, bytesRead); // Update the hash
                 currentSize += bytesRead;
 
-                // log progress
-                if (++currentPacket % 500 == 0) {
+                // Optionally log progress
+                if (currentSize % 10000 == 0) {
                     double progress = (double) currentSize / totalSize * 100;
                     System.out.printf("Received: %.2f%%%n", progress);
                 }
             }
-            
-            
+
             // Compute the final hash
             String calculatedHash = Hasher.bytesToHex(messageDigest.digest());
-            //write("File received. Hash: " + calculatedHash);
-            System.out.println("File received. Hash: " + calculatedHash);
-            
-            dbHandler.updateFileTransferStats(username, true, 1); // Update sent files count
-            if(visibility.equals("public")) {
-            	dbHandler.logCommand(username, "UPLOAD", fileName, true, true);
-            	dbHandler.addSharedFile(fileName, username);
-            } else {
-            	dbHandler.logCommand(username, "UPLOAD", fileName, false, true);
-            }
-            
+            write("File received. Hash: " + calculatedHash);
 
             // Start asynchronous virus check
             new Thread(() -> {
@@ -153,7 +157,6 @@ public class FileManagerServer {
                     System.err.println("File is infected!");
                     // Uncomment to delete infected files
                     // newFile.delete();
-                    dbHandler.updateSentVirusesCount(username, 1);
                 }
             }).start();
 
@@ -162,53 +165,6 @@ public class FileManagerServer {
         }
     }
 
-
-    /**
-     * Sends a file to the client in chunks with hash-based integrity verification.
-     *
-     * @param dir      the directory containing the file
-     * @param fileName the name of the file to send
-     * @throws IOException if an error occurs during file transfer
-     */
-    public boolean sendFile(File dir, String fileName) throws IOException {
-        File file = new File(dir, fileName);
-        if (!file.exists()) {
-            write("File Not Found.");
-            return false;
-        }
-
-        write("Ready");
-        
-        if(!read().contains("Ready"))
-        	return false;
-        
-        long totalSize = file.length();
-        dataOutputStream.writeLong(totalSize);
-
-        try (RandomAccessFile randomAccessFile = new RandomAccessFile(file, "r")) {
-            MessageDigest messageDigest = MessageDigest.getInstance("SHA-256");
-            byte[] buffer = new byte[BUFFER_SIZE];
-            int bytesRead;
-
-            while ((bytesRead = randomAccessFile.read(buffer)) != -1) {
-                dataOutputStream.write(buffer, 0, bytesRead);
-                messageDigest.update(buffer, 0, bytesRead); // Update hash with chunk data
-            }
-
-            // Send the final file hash
-            String finalHash = Hasher.bytesToHex(messageDigest.digest());
-            dataOutputStream.writeUTF(finalHash);
-
-            System.out.println("File sent successfully. Hash: " + finalHash);
-            return true;
-        } catch (Exception e) {
-            System.err.println("Error during file transfer: " + e.getMessage());
-            dataOutputStream.writeUTF("TRANSFER_FAILED " + e.getMessage());
-            return false;
-        }
-    }
-    
-    
     /**
      * Sends a file to the client in packets, computing hashes for integrity checks.
      * 
@@ -217,7 +173,7 @@ public class FileManagerServer {
      * @return true if the file was sent successfully, false otherwise
      * @throws IOException if an error occurs during file transfer
      */
-    /*public boolean sendFile(File dir, String requestedFileName) throws IOException {
+    public boolean sendFile(File dir, String requestedFileName) throws IOException {
         File file = new File(dir, requestedFileName);
         if (!file.exists()) {
             System.out.println("File Not Found");
@@ -260,7 +216,7 @@ public class FileManagerServer {
                     }
                 } else if (clientRequest.equals("TRANSFER_COMPLETE")) {
                     byte[] fileHash = messageDigest.digest();
-                    dataOutputStream.writeUTF(Hasher.bytesToHex(fileHash)); //Final HASH
+                    dataOutputStream.writeUTF("FINAL_HASH " + Hasher.bytesToHex(fileHash));
                     break;
                 }
             }
@@ -270,8 +226,7 @@ public class FileManagerServer {
             dataOutputStream.writeUTF("TRANSFER_FAILED " + e.getMessage());
             return false;
         }
-    }*/
-
+    }
 
     /**
      * Removes a file from the specified folder if it exists.
@@ -299,4 +254,53 @@ public class FileManagerServer {
             return false; // File does not exist
         }
     }
+    
+    /**
+     * Searches for the presence of a file by name in collaboration files (.txt).
+     * The search will go through all `.txt` files in the server directory to check if 
+     * the given file name is listed in any of them.
+     * 
+     * @param fileName the name of the file to search for
+     * @return the name of the file containing the file entry if found, or an empty string if not found
+     */
+    public String searchInCollaboration(String fileName) {
+        File folder = new File(AppConst.PATH_SERVER);
+
+        // Get all .txt files in the folder
+        File[] textFiles = folder.listFiles((dir, name) -> name.toLowerCase().endsWith(".txt"));
+        System.out.println("Text files is null? " + (textFiles == null));
+        
+        if (textFiles != null) {
+            System.out.println("Text files size: " + textFiles.length);
+            for (File textFile : textFiles) {
+                // Read each .txt file line by line
+                System.out.println("Checking text file: " + textFile);
+                
+                try (BufferedReader reader = new BufferedReader(new FileReader(textFile))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        if (line.trim().equals(fileName)) {
+                            String whoHaveFile = textFile.getName();
+                            
+                            if (whoHaveFile.endsWith(".txt")) {
+                                whoHaveFile = whoHaveFile.substring(0, whoHaveFile.lastIndexOf("."));
+                            }
+                            write("File Exists.");
+                            System.out.println("File found in: " + whoHaveFile);
+                            return whoHaveFile;
+                        }
+                    }
+                } catch (IOException e) {
+                    System.err.println("Error reading file: " + textFile.getName());
+                    // Handle or log the exception appropriately
+                }
+            }
+        }
+
+        // If the file name was not found in any .txt file
+        write("File Doesn't Exist.");
+        System.out.println("File Doesn't Exist.");
+        return "";
+    }
+
 }
