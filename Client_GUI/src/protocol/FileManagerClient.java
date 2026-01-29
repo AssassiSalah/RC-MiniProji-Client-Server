@@ -73,12 +73,7 @@ public class FileManagerClient {
     private void write(String message) {
         communication_Manager.write(message);
     }
-
-    
-    
-    
-    
-    
+ 
     /**
      * Downloads a file from the server asynchronously, decrypts it, and verifies its integrity using SHA-256.
      *
@@ -177,10 +172,7 @@ public class FileManagerClient {
         // Run the download task in a separate thread
         new Thread(downloadTask).start();
     }
-
-
     
-
     /**
      * Uploads a file to the server asynchronously, encrypts it, and sends its hash for integrity verification.
      *
@@ -282,10 +274,188 @@ public class FileManagerClient {
         // Run the upload task in a separate thread
         new Thread(uploadTask).start();
     }
+    
+    //// ANOTHER VERSION Done Before the main one OF Download/Upload methods without the Encription (confidentiality + AES for crypt algorithm)
+    //// USING THE HASH AS A CHECK FOR ALL THE PACKETS if they are received correctly, by: Bekkari Abderahman & Assassi Salah Eddine
+    import java.io.FileInputStream;
+    import java.util.Arrays;
+
+    /**
+     * Downloads a file from the server asynchronously.
+     *
+     * @param fileName the name of the file to be downloaded.
+     * @throws IOException              if an I/O error occurs during file download.
+     * @throws NoSuchAlgorithmException if SHA-256 is not supported.
+     */
+    public void downloadFile_ParallelVersion(String fileName, boolean advance) throws IOException, NoSuchAlgorithmException {
+        File downloadedFile = new File(AppConst.DEFAULT_DOWNLOAD_PATH, fileName);
+        
+        write("Ready");
+
+        // Read total file size from the server
+        long totalSize = dataInputStream.readLong();
+        System.out.println("Size... " + totalSize);
+        if (totalSize <= 0) {
+            throw new IOException("Invalid file size received.");
+        }
+
+        MessageDigest messageDigest = MessageDigest.getInstance("SHA-256");
+
+        // Asynchronous download task
+        Task<Void> downloadTask = new Task<>() {
+            @Override
+            protected Void call() throws Exception {
+                System.out.println("Starting download...");
+
+                try (RandomAccessFile fileOut = new RandomAccessFile(downloadedFile, "rw")) {
+                    fileOut.setLength(totalSize); // Preallocate space for the file
+
+                    long packetCount = (long) Math.ceil((double) totalSize / BUFFER_SIZE);
+                    
+                    byte[] buffer = new byte[BUFFER_SIZE];
+                    long currentSize = 0;
+                    long startMillis = System.currentTimeMillis();
+                    long currentPacket = 0;
+
+                    communication_Manager.startProgressTimer(totalSize);
+
+                    while (currentPacket < packetCount) {
+                        dataOutputStream.writeUTF("REQUEST_PACKET " + currentPacket);
+
+                        int bytesRead = dataInputStream.read(buffer);
+                        if (bytesRead == -1) break;
+
+                        byte[] packet = Arrays.copyOf(buffer, bytesRead);
+                        String receivedHash = dataInputStream.readUTF();
+
+                        String calculatedHash = Hasher.computeSHA256(packet);
+                        if (receivedHash.equals(calculatedHash)) {
+                            fileOut.seek(currentPacket * BUFFER_SIZE);
+                            fileOut.write(packet);
+                            currentPacket++;
+
+                            // Update current size and progress
+                            currentSize += bytesRead;
+                            messageDigest.update(buffer, 0, bytesRead);
 
 
+                            // Log progress every 10 KB
+                            if (currentSize % 10_000 == 0) {
+                                double progress = (double) currentSize / totalSize;
+                                communication_Manager.updateProgressTimer(currentSize / 1024, System.currentTimeMillis() - startMillis);
+
+                                System.out.printf("Packet %d downloaded: %.2f%%%n", currentPacket, progress * 100);
+                            }
+                        } else {
+                            System.err.println("Hash mismatch for packet " + currentPacket + ". Retrying...");
+                        }
+                    }
+                    dataOutputStream.writeUTF("TRANSFER_COMPLETE");
+
+                    System.out.print("l");
+                    // Validate file hash
+                    String finalHash = dataInputStream.readUTF();
+                    System.out.print("l");
+
+                    String calculatedHash = Hasher.bytesToHex(messageDigest.digest());
+                    System.out.print("l");
 
 
+                    if (!finalHash.equals(calculatedHash)) {
+                        throw new IOException("File hash mismatch! Expected: " + finalHash + ", Calculated: " + calculatedHash);
+                    }
+
+                    System.out.println("Download completed successfully. Hash verified.");
+                } catch (IOException e) {
+                    System.err.println("Download failed: " + e.getMessage());
+                    throw e;
+                }
+
+                communication_Manager.stopCircleProgress(advance);
+                return null;
+            }
+        };
+
+        // Start download task in a new thread
+        new Thread(downloadTask).start();
+    }
+    
+    /**
+     * Uploads a file to the server asynchronously.
+     *
+     * @param file      the file to be uploaded.
+     * @param totalSize the total size of the file in bytes.
+     * @throws IOException if an I/O error occurs during file upload.
+     */
+    public void uploadFile_ParallelVersion(File file, long totalSize) throws IOException {
+        MessageDigest messageDigest;
+        try {
+            messageDigest = MessageDigest.getInstance("SHA-256");
+        } catch (NoSuchAlgorithmException e) {
+            System.err.println("SHA-256 is not available.");
+            return;
+        }
+
+        dataOutputStream.writeLong(totalSize);
+
+        Task<Void> uploadTask = new Task<>() {
+            @Override
+            protected Void call() throws Exception {
+                System.out.println("start to upload ");
+
+                try (FileInputStream fileInputStream = new FileInputStream(file)) {
+                    byte[] buffer = new byte[BUFFER_SIZE];
+                    int bytesRead;
+                    long currentSize = 0;
+                    int currentPacket = 0; 
+                    
+                    long startMillis = System.currentTimeMillis();
+
+                    communication_Manager.startProgressTimer(totalSize);
+                    while (currentSize < totalSize) {
+                        bytesRead = fileInputStream.read(buffer);
+                        if (bytesRead == -1) {
+                            break;
+                        }
+
+                        dataOutputStream.write(buffer, 0, bytesRead);
+                        messageDigest.update(buffer, 0, bytesRead);
+                        currentSize += bytesRead;
+
+                        if (++currentPacket % 500 == 0) {
+                            communication_Manager.updateProgressTimer(currentSize / 1024, System.currentTimeMillis() - startMillis);
+
+                            double progress = (double) currentSize / totalSize;
+                            System.out.printf("Chunk %d uploaded: %.2f%%%n", currentPacket, progress * 100);
+                        }
+                    }
+
+                    dataOutputStream.flush();
+
+                    byte[] calculatedHash = messageDigest.digest();
+                    StringBuilder hashBuilder = new StringBuilder();
+                    for (byte b : calculatedHash) {
+                        hashBuilder.append(String.format("%02x", b));
+                    }
+
+                    String fileHash = hashBuilder.toString();
+                    System.out.println("Calculated Hash: " + fileHash);
+
+                    //write("File uploaded. Hash: " + fileHash);
+                    System.out.println("File uploaded. Hash: " + fileHash);
+
+                    System.out.println("File uploaded successfully.");
+
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+                communication_Manager.stopCircleProgressU();
+                return null;
+            }
+        };
+
+        new Thread(uploadTask).start();
+    }
 
     /**
      * Requests the server to remove a file.

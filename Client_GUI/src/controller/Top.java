@@ -2,11 +2,13 @@ package controller;
 
 import application.Load_Interfaces;
 import application.Main;
+
 import javafx.fxml.FXML;
 import javafx.scene.control.Button;
 import javafx.scene.control.Tooltip;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
+
 import protocol.Communication;
 
 public class Top {

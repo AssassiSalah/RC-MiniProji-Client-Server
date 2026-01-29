@@ -3,6 +3,7 @@ package application;
 import java.io.IOException;
 import java.util.logging.Logger;
 import controller.Advance_Download;
+import controller.CircularProgressBarController;
 import controller.Download;
 import controller.Home;
 import controller.Right;
@@ -332,6 +333,11 @@ public class Load_Interfaces {
 		alert.setHeaderText(null);
 		alert.setContentText(contentText);
 		alert.showAndWait(); // Shows the alert and waits for user interaction
+	}
+
+	public static void stopProgressCircle() {
+		((CircularProgressBarController) circleProgress.getController()).stopProgressCircle();
+		
 	}
 }
 

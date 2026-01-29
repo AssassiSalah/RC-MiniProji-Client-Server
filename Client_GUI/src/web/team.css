@@ -1,0 +1,59 @@
+/* animations.css */
+
+/* Style for the team container */
+.team-container {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-top: 10px;
+}
+
+/* Style for individual team members */
+.team-member {
+    font-size: 18px;
+    font-weight: bold;
+    color: #333;
+    margin: 5px;
+    padding: 5px 10px;
+    border-radius: 5px;
+    background: linear-gradient(45deg, #ff4e50, #f9d423);
+    color: white;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+    opacity: 0;
+    animation: fadeIn 1.5s ease-in-out forwards;
+    margin-left: 20px;
+    transform: scale(1);
+}
+
+/* Animation for the team member names */
+@keyframes fadeIn {
+    0% {
+        opacity: 0;
+        transform: scale(0.8);
+    }
+    50% {
+        opacity: 0.5;
+        transform: scale(1.05);
+    }
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+/* Delay the animation for each team member */
+.team-member:nth-child(1) {
+    animation-delay: 0s;
+}
+.team-member:nth-child(2) {
+    animation-delay: 0.2s;
+}
+.team-member:nth-child(3) {
+    animation-delay: 0.4s;
+}
+.team-member:nth-child(4) {
+    animation-delay: 0.6s;
+}
+.team-member:nth-child(5) {
+    animation-delay: 0.8s;
+}

@@ -5,6 +5,7 @@ import java.time.format.DateTimeFormatter;
 
 import application.Load_Interfaces;
 import application.Main;
+
 import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
 import javafx.fxml.FXML;
@@ -39,8 +40,6 @@ public class Right {
     
     private DateTimeFormatter time_Formatter;
     
-    public static boolean visibility;
-
     /**
      * Initializes the controller. This method is automatically called
      * after the FXML file has been loaded.
@@ -50,6 +49,9 @@ public class Right {
         time_Formatter = DateTimeFormatter.ofPattern("hh:mm:ss a");
         
         myFilesButton.setSelected(true);
+        
+        myFilesButton.setDisable(true);
+        sharedFilesButton.setDisable(true);
         
         // Add a listener to detect item selection
         filesListView.getSelectionModel().selectedItemProperty().addListener(new ChangeListener<Label>() {
@@ -102,10 +104,25 @@ public class Right {
     @FXML
     private void onVisibleClick() {
     	refreashTime();
-        // Example: Toggle visibility of all labels in the VBox
-        boolean isVisible = filesListView.isVisible();
-        filesListView.setVisible(!isVisible);
-        System.out.println("Toggling visibility: " + !isVisible);
+        Label selectedLabel = filesListView.getSelectionModel().getSelectedItem();
+        if (selectedLabel != null) {
+        	AppConst.communication_Manager.write("CHANGE_VISIBILITY");
+        	
+        	String nameFile = selectedLabel.getText();
+        	
+        	int index = nameFile.indexOf(" (Owner");
+			if(index != -1) {
+				nameFile = nameFile.substring(0, index);
+			}
+			
+        	AppConst.communication_Manager.write(nameFile);
+        	HistoryController.appendToFile(new HistoryController.Record("Change_Visibility", nameFile));
+        } else {
+            System.out.println("No File Selected");
+            HistoryController.appendToFile(new HistoryController.Record("Change_Visibility", "null"));
+        }
+    	
+        onRefreashClick();
     }
 
     /**
@@ -134,7 +151,6 @@ public class Right {
     public void selectMyFiles() {
     	myFilesButton.setSelected(true);
     	sharedFilesButton.setSelected(false);
-    	visibility = false;
     	onRefreashClick();
     }
     
@@ -142,7 +158,6 @@ public class Right {
     public void selectSharedFiles() {
     	sharedFilesButton.setSelected(true);
     	myFilesButton.setSelected(false);
-    	visibility = true;
     	onRefreashClick();
     }
     

@@ -113,8 +113,8 @@ public class Log_In {
 
 	@FXML
 	private void log_In() {
-		if(!Main.communication_Manager.isConnect())
-			Main.communication_Manager.connect();
+		if(!AppConst.communication_Manager.isConnect())
+			AppConst.communication_Manager.connect();
 		
 		if (handle_Username_Password("LOG_IN")) {
 			Load_Interfaces.informationAlert("Log In Successful", "Now You Are Authonticated");
@@ -126,8 +126,8 @@ public class Log_In {
 
 	@FXML
 	private void register() {
-		if(!Main.communication_Manager.isConnect())
-			Main.communication_Manager.connect();
+		if(!AppConst.communication_Manager.isConnect())
+			AppConst.communication_Manager.connect();
 		
 		if (handle_Username_Password("REGISTER")) {
 			Load_Interfaces.informationAlert("Register Successful", "Now You Can Log In");

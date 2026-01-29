@@ -125,15 +125,15 @@ public class Communication {
                     return;
                 }
                 try {
+                    
                     /* Check if the file already exists */
-                    /*
                 	if (new File(AppConst.DEFAULT_DOWNLOAD_PATH, fileName).exists()) {
                         write("Already Have It");
                         System.out.println("Already Exist In This Machine.");
                         return;
                     }
                 	write("Ready");
-                    */
+
                 	
                     // Display the progress circle (must run on the JavaFX thread)
                     Platform.runLater(() -> Load_Interfaces.displayCircleProgress());
@@ -285,6 +285,7 @@ public class Communication {
 
 	public void stopCircleProgressU() {
 		Platform.runLater(() -> {
+			Load_Interfaces.stopProgressCircle();
 	        Load_Interfaces.displayUpload();
         });
 	}

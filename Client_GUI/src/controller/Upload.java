@@ -4,8 +4,10 @@ import java.io.File;
 
 import application.Load_Interfaces;
 import application.Main;
+
 import javafx.fxml.FXML;
 import javafx.scene.control.TextField;
+import javafx.scene.control.ToggleButton;
 import javafx.scene.input.DragEvent;
 import javafx.scene.input.Dragboard;
 import javafx.scene.input.TransferMode;
@@ -24,6 +26,9 @@ public class Upload {
 
     @FXML
     private TextField pathFile;
+    
+    @FXML
+    private ToggleButton visibility_Public;
 
     /**
      * Initializes the upload interface by setting up drag-and-drop listeners.
@@ -123,16 +128,12 @@ public class Upload {
 
         System.out.println("Want To Upload This File: " + pathFile.getText());
         
-        String visibility;
-        if(!Right.visibility)
-        	visibility = "private";
-        else
-        	visibility = "public";
-        
+        String visibility = (!visibility_Public.isSelected())? "private" : "public";
+                
         // Call the upload method to upload the selected file
         Main.communication_Manager.upload(pathFile.getText(), visibility);
         // Log the upload attempt in the history
-        HistoryController.appendToFile(new HistoryController.Record("Upload", new File(pathFile.getText()).getName(), "false"));
+        HistoryController.appendToFile(new HistoryController.Record("Upload", new File(pathFile.getText()).getName(), visibility));
     }
 
     /**
