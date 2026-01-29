@@ -99,6 +99,7 @@ public class AuthenticatedFileServer {
 			while (true) {
 				String command = reader.readLine(); // Read client command
 				System.out.println("Client: " + username + " Command: " + command);
+				
 				switch (command) {
 				case "LOG_IN":
 					// Log in the user and authenticate
@@ -135,6 +136,19 @@ public class AuthenticatedFileServer {
 					listFilesShared(writer);
 					dbHandler.logCommand(username, "LIST_FILES_SHARED", "_", null, true);
 					break;
+				case "CHANGE_VISIBILITY":
+					// Change The Visibility Of The File
+					String visibilityFileName = reader.readLine();
+					if(dbHandler.searchFileOwner(visibilityFileName) != null) { // public
+						dbHandler.removeSharedFile(visibilityFileName); // make it private
+						visibility = "private";
+					} else {
+						dbHandler.addSharedFile(visibilityFileName, username);
+						visibility = "public";
+					}
+					
+					dbHandler.logCommand(username, "CHANGE_VISIBILITY", visibilityFileName, visibility.equals("public"), true);
+					break;
 				case "DOWNLOAD":
 					// Handle file download
 					String requestedFileName_DOWNLOAD = reader.readLine();
@@ -149,9 +163,13 @@ public class AuthenticatedFileServer {
 				case "ADVANCE_DOWNLOAD":
 					// Handle advanced file search and download
 					String requestedFileName_Search = reader.readLine();
-					String whoHaveFile = fileManager.searchInCollaboration(requestedFileName_Search);
-					if (!whoHaveFile.isEmpty())
-						fileManager.sendFile(new File(AppConst.PATH_SERVER, whoHaveFile), requestedFileName_Search);
+					String owner = dbHandler.searchFileOwner(requestedFileName_Search);
+					if (owner != null) {
+                        writer.println("File Exists.");
+						fileManager.sendFile(new File(AppConst.PATH_SERVER, owner), requestedFileName_Search);
+					} else
+						writer.println("File Doesn't Exist.");
+					
 					break;
 				case "REMOVE":
 					// Handle file removal

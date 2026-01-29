@@ -1,9 +1,8 @@
 package controller;
 
-import java.io.IOException;
-
+import application.AppConst;
 import application.Load_Interfaces;
-import application.Main;
+
 import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.scene.control.TextField;
@@ -26,7 +25,7 @@ public class Download {
 	    // Run the download in a new thread to avoid freezing the UI
 	    new Thread(() -> {
 	        try {
-	            Main.communication_Manager.download(fileName);
+	            AppConst.communication_Manager.download(fileName);
 	            // Append history entry on download success
 	            Platform.runLater(() -> HistoryController.appendToFile(new HistoryController.Record("Download", fileName)));
 	        } catch (Exception e) {

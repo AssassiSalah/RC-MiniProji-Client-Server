@@ -1,11 +1,10 @@
 package controller;
 
+import application.AppConst;
 import application.Load_Interfaces;
-import application.Main;
+
 import javafx.fxml.FXML;
 import javafx.scene.control.TextField;
-import protocol.Communication;
-import protocol.Hasher;
 
 public class Log_In {
 
@@ -14,31 +13,23 @@ public class Log_In {
 
 	@FXML
 	private TextField passwordField;
-
-	
-	public Communication communication_Manager;
-
-	@FXML
-	public void initialize() {
-		communication_Manager = Main.communication_Manager;
-	}
 	
 	private boolean handle_Username_Password(String command) {
 		String username = usernameField.getText();
 		String password = passwordField.getText();
 
-		communication_Manager.write(command);
-		communication_Manager.write(username);
-		communication_Manager.write(password);
+		AppConst.communication_Manager.write(command);
+		AppConst.communication_Manager.write(username);
+		AppConst.communication_Manager.write(password);
 		//communication_Manager.write(Hasher.hashPassword(password));
 		
-		return communication_Manager.read().contains("Successful");
+		return AppConst.communication_Manager.read().contains("Successful");
 	}
 
 	@FXML
 	private void log_In() {
-		if(!Main.communication_Manager.isConnect())
-			Main.communication_Manager.connect();
+		if(!AppConst.communication_Manager.isConnect())
+			AppConst.communication_Manager.connect();
 		
 		if (handle_Username_Password("LOG_IN")) {
 			Load_Interfaces.informationAlert("Log In Successful", "Now You Are Authonticated");
@@ -50,8 +41,8 @@ public class Log_In {
 
 	@FXML
 	private void register() {
-		if(!Main.communication_Manager.isConnect())
-			Main.communication_Manager.connect();
+		if(!AppConst.communication_Manager.isConnect())
+			AppConst.communication_Manager.connect();
 		
 		if (handle_Username_Password("REGISTER")) {
 			Load_Interfaces.informationAlert("Register Successful", "Now You Can Log In");

@@ -12,12 +12,9 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.Arrays;
-import java.util.concurrent.atomic.AtomicLong;
 
 import application.AppConst;
 import application.Load_Interfaces;
-import javafx.application.Platform;
 import javafx.concurrent.Task;
 
 public class FileManagerClient {
@@ -25,7 +22,7 @@ public class FileManagerClient {
     private Communication communication_Manager;
     private DataInputStream dataInputStream;
     private DataOutputStream dataOutputStream;
-    private int BUFFER_SIZE = 65536; //8192;
+    private int BUFFER_SIZE = 16384; //8192;
 
     /**
      * Constructs a new `FileManagerClient` object.
@@ -74,8 +71,10 @@ public class FileManagerClient {
      * @throws IOException              if an I/O error occurs during file download.
      * @throws NoSuchAlgorithmException if SHA-256 is not supported.
      */
-    public void downloadFile(String fileName) throws IOException, NoSuchAlgorithmException {
+    public void downloadFile(String fileName, boolean advance) throws IOException, NoSuchAlgorithmException {
         File downloadedFile = new File(AppConst.DEFAULT_DOWNLOAD_PATH, fileName);
+        
+        write("Ready");
 
         // Read total file size from the server
         long totalSize = dataInputStream.readLong();
@@ -85,7 +84,6 @@ public class FileManagerClient {
         }
 
         MessageDigest messageDigest = MessageDigest.getInstance("SHA-256");
-        AtomicLong currentSize = new AtomicLong(0);
 
         // Asynchronous download task
         Task<Void> downloadTask = new Task<>() {
@@ -98,13 +96,14 @@ public class FileManagerClient {
 
                     byte[] buffer = new byte[BUFFER_SIZE];
                     int bytesRead;
+                    long currentSize = 0;
                     long startMillis = System.currentTimeMillis();
 
                     communication_Manager.startProgressTimer(totalSize);
 
-                    while (currentSize.get() < totalSize) {
+                    while (currentSize < totalSize) {
                         // Adjust buffer size for the last chunk
-                        int remainingBytes = (int) Math.min(buffer.length, totalSize - currentSize.get());
+                        int remainingBytes = (int) Math.min(buffer.length, totalSize - currentSize);
                         bytesRead = dataInputStream.read(buffer, 0, remainingBytes);
 
                         if (bytesRead == -1) {
@@ -114,13 +113,13 @@ public class FileManagerClient {
                         // Write to file and update hash
                         fileOut.write(buffer, 0, bytesRead);
                         messageDigest.update(buffer, 0, bytesRead);
-                        currentSize.addAndGet(bytesRead);
+                        currentSize += bytesRead;
 
                         // Log progress
-                        if (currentSize.get() % 10_000 == 0) {
-                            double progress = (double) currentSize.get() / totalSize;
+                        if (currentSize % 10_000 == 0) {
+                            double progress = (double) currentSize / totalSize;
                             long elapsedMillis = System.currentTimeMillis() - startMillis;
-                            communication_Manager.updateProgressTimer(currentSize.get() / 1024, elapsedMillis);
+                            communication_Manager.updateProgressTimer(currentSize / 1024, elapsedMillis);
 
                             System.out.printf("Downloaded %.2f%%%n", progress * 100);
                         }
@@ -140,7 +139,7 @@ public class FileManagerClient {
                     throw e;
                 }
 
-                communication_Manager.stopCircleProgressD();
+                communication_Manager.stopCircleProgress(advance);
                 return null;
             }
         };
@@ -279,8 +278,6 @@ public class FileManagerClient {
 
         dataOutputStream.writeLong(totalSize);
 
-        AtomicLong currentSize = new AtomicLong(0);
-
         Task<Void> uploadTask = new Task<>() {
             @Override
             protected Void call() throws Exception {
@@ -289,12 +286,13 @@ public class FileManagerClient {
                 try (FileInputStream fileInputStream = new FileInputStream(file)) {
                     byte[] buffer = new byte[BUFFER_SIZE];
                     int bytesRead;
-                    int sequenceNumber = 0;
-
+                    long currentSize = 0;
+                    int currentPacket = 0; 
+                    
                     long startMillis = System.currentTimeMillis();
-                    long endMillis = 0;
+
                     communication_Manager.startProgressTimer(totalSize);
-                    while (currentSize.get() < totalSize) {
+                    while (currentSize < totalSize) {
                         bytesRead = fileInputStream.read(buffer);
                         if (bytesRead == -1) {
                             break;
@@ -302,15 +300,13 @@ public class FileManagerClient {
 
                         dataOutputStream.write(buffer, 0, bytesRead);
                         messageDigest.update(buffer, 0, bytesRead);
-                        currentSize.addAndGet(bytesRead);
+                        currentSize += bytesRead;
 
-                        endMillis = System.currentTimeMillis();
+                        if (++currentPacket % 500 == 0) {
+                            communication_Manager.updateProgressTimer(currentSize / 1024, System.currentTimeMillis() - startMillis);
 
-                        if (currentSize.get() % 10000 == 0) {
-                            communication_Manager.updateProgressTimer(currentSize.get() / 1024, endMillis - startMillis);
-
-                            double progress = (double) currentSize.get() / totalSize;
-                            System.out.printf("Chunk %d uploaded: %.2f%%%n", ++sequenceNumber, progress * 100);
+                            double progress = (double) currentSize / totalSize;
+                            System.out.printf("Chunk %d uploaded: %.2f%%%n", currentPacket, progress * 100);
                         }
                     }
 

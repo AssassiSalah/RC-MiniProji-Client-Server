@@ -3,6 +3,7 @@ package application;
 import java.io.IOException;
 import java.util.logging.Logger;
 import controller.Advance_Download;
+import controller.CircularProgressBarController;
 import controller.Download;
 import controller.Home;
 import controller.Right;
@@ -316,7 +317,9 @@ public class Load_Interfaces {
 		}
 
 		if (Advance_Download.class.isInstance(adv_Download_Pane.getController())) {
-			((Advance_Download) adv_Download_Pane.getController()).setText(text);
+			int index = text.indexOf(" (Owner");
+			if(index != -1)
+				((Advance_Download) adv_Download_Pane.getController()).setText(text.substring(0, index));
 		}
 	}
 

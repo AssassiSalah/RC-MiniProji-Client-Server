@@ -1,4 +1,4 @@
-module RC_file_sharing_new_interfaces {
+module Client_GUI {
 	requires javafx.controls;
 	requires javafx.fxml;
 	requires javafx.graphics;
@@ -6,7 +6,7 @@ module RC_file_sharing_new_interfaces {
 	requires java.base;
 	requires java.desktop;
 	requires javafx.base;
-	
-    opens controller to javafx.graphics, javafx.fxml, javafx.base;
+
+	opens controller to javafx.graphics, javafx.fxml, javafx.base;
 	opens application to javafx.graphics, javafx.fxml;
 }

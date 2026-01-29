@@ -10,6 +10,7 @@ import java.io.PrintWriter;
 import java.net.Socket;
 import java.security.NoSuchAlgorithmException;
 
+import application.AppConst;
 import application.Load_Interfaces;
 
 import javafx.application.Platform;
@@ -98,7 +99,7 @@ public class Communication {
 
         Platform.runLater(() -> Load_Interfaces.displayCircleProgress()); // Safely update the UI
         try {
-            fileManager.downloadFile(fileName); // This runs asynchronously using a Task
+            fileManager.downloadFile(fileName, false); // This runs asynchronously using a Task
         } catch (IOException | NoSuchAlgorithmException e) {
             e.printStackTrace();
             Platform.runLater(() -> Load_Interfaces.informationAlert("Error", "An error occurred during the download."));
@@ -117,19 +118,28 @@ public class Communication {
             write(fileName);
 
             String response = read();
+            System.out.println(response);
 
             if (response.contains("File Exist")) {
                 response = read();
+                System.out.println(response);
                 if (!response.contains("Ready")) {
                     System.out.println("Algorithm Not Exist.");
                     return;
                 }
                 try {
+                	if (new File(AppConst.DEFAULT_DOWNLOAD_PATH, fileName).exists()) {
+                        write("Already Have It");
+                        System.out.println("Already Exist In This Machine.");
+                        return;
+                    }
+                	write("Ready");
+                	
                     // Display the progress circle (must run on the JavaFX thread)
                     Platform.runLater(() -> Load_Interfaces.displayCircleProgress());
 
                     // Start the download
-                    fileManager.downloadFile(fileName);
+                    fileManager.downloadFile(fileName, true);
 
                     // Stop progress display on success (must run on the JavaFX thread)
                     Platform.runLater(() -> {
@@ -279,15 +289,13 @@ public class Communication {
         });
 	}
 
-	public void stopCircleProgressD() {
+	public void stopCircleProgress(boolean advance) {
 		Platform.runLater(() -> {
-	        Load_Interfaces.displayDownload();
+			if(advance)
+				Load_Interfaces.displayAdvDownload();
+			else
+				Load_Interfaces.displayDownload();
         });
 	}
-	
-	public void stopCircleProgressA() {
-		Platform.runLater(() -> {
-	        Load_Interfaces.displayAdvDownload();
-        });
-	}
+
 }

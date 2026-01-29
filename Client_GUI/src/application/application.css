@@ -1,5 +1,92 @@
 /* JavaFX CSS - Leave this comment until you have at least create one rule which uses -fx-Property */
 
-.progress-indicator .percentage {
-    -fx-opacity: 0; /* Hide the percentage text */
+/* JavaFX CSS - Leave this comment until you have at least create one rule which uses -fx-Property */
+
+/* Base button style */
+
+.root{
+	-fx-background-color: #2E2E2E;
+}
+
+.button {
+    -fx-font-weight: bold;
+}
+
+/* Normal state */
+#normal {
+    -fx-background-color: #2E2E2E; /* Replace with AppConst.Normal_COLOR */
+    -fx-border-color: #4681f1;
+    -fx-border-radius: 15px;        /* Rounded corners */
+    -fx-border-insets: -2px -1px;   /* Insets for X and Y scaling */
+    -fx-border-width: 3px;
+    -fx-text-fill: white;
+}
+
+#normal:hover {
+    -fx-background-color: #7AAEF9; /* Lighter shade for hover */
+    /*-fx-border-color: #276B47;     /* Outline color */
+    /*-fx-border-width: 3px;         /* Outline thickness */
+    /*-fx-border-radius: 15px;        /* Rounded corners */
+    /*-fx-border-insets: -2px -1px;   /* Insets for X and Y scaling */
+    
+}
+
+#normal:pressed {
+    -fx-background-color: #25478a; /* Darker shade for pressed */
+}
+
+/* Selected state */
+#selected {
+    -fx-background-color: #4681f1; /* Replace with AppConst.Selected_COLOR */
+    -fx-text-fill: white;
+}
+
+#selected:hover {
+    -fx-background-color: #7AAEF9; /* Lighter shade for hover */
+}
+
+#selected:pressed {
+    -fx-background-color: #25478a; /* Darker shade for pressed */
+}
+
+.text-field {
+    -fx-background-color: #2E2E2E; /* Dark background */
+    -fx-text-fill: white;          /* Light text color */
+    -fx-prompt-text-fill: #888888; /* Dim text for placeholder */
+    -fx-border-color: #444444;    /* Border color */
+    -fx-border-radius: 5px;       /* Rounded corners */
+    -fx-background-radius: 5px;   /* Match the border rounding */
+    -fx-padding: 5px;             /* Padding inside the text field */
+}
+
+/* TextField Hover Effect */
+.text-field:hover {
+    -fx-border-color: #666666; /* Lighter border on hover */
+}
+
+/* TextField Focused Effect */
+.text-field:focused {
+    -fx-border-color: #4681f1; /* Blue border for focus */
+    -fx-background-color: #1E1E1E; /* Slightly darker background */
+}
+
+.vbox {
+	-fx-background-color: black;
+}
+
+
+
+/* Hover effect */
+.button:hover {
+    -fx-background-color: #356ac3; /* Slightly darker shade */
+    -fx-scale-x: 1.05;
+    -fx-scale-y: 1.05;
+    -fx-cursor: hand; /* Change cursor to hand */
+}
+
+/* Optional: Pressed effect */
+.button:pressed {
+    -fx-background-color: #25478a; /* Even darker shade */
+    -fx-scale-x: 0.95;
+    -fx-scale-y: 0.95;
 }

@@ -1,6 +1,10 @@
 package application;
 
+import protocol.Communication;
+
 public class AppConst {
+	
+	public static Communication communication_Manager;
 	
     public static final String SERVER_ADDRESS = "localhost";
     public static final int SERVER_PORT = 5000;

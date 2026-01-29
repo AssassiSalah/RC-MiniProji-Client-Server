@@ -3,11 +3,9 @@ package server;
 import java.io.*;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
 
 import check_virus.CheckVirus;
+
 import util.Hasher;
 
 /**
@@ -21,7 +19,7 @@ public class FileManagerServer {
     private BufferedReader reader;
     private PrintWriter writer;
 
-    private static final int BUFFER_SIZE = 65536; // Buffer size for file transfer 4KB 4096
+    private static final int BUFFER_SIZE = 16384; // Buffer size for file transfer 4KB 4096
     											  // 8 KB 8192;
     											  // 16 KB 16384;
     											  // 64 KB 65536;
@@ -40,26 +38,6 @@ public class FileManagerServer {
         this.dataOutputStream = dataOutputStream;
         this.reader = reader;
         this.writer = writer;
-    }
-
-    /**
-     * Mimics a database by returning a map of hardcoded user credentials.
-     * Hashes passwords and creates user directories if not already present.
-     * 
-     * @return a map of usernames to hashed passwords
-     */
-    public static Map<String, String> getUsers() {
-        Map<String, String> users = new HashMap<>();
-        // Sample user credentials
-        users.put("admin", Hasher.hashPassword("admin"));
-        createIfNotExist("admin");
-        users.put("1", Hasher.hashPassword("1"));
-        createIfNotExist("1");
-        users.put("user1", Hasher.hashPassword("pass1"));
-        createIfNotExist("user1");
-        users.put("user2", Hasher.hashPassword("pass2"));
-        createIfNotExist("user2");
-        return users;
     }
 
     /**
@@ -132,20 +110,21 @@ public class FileManagerServer {
             return;
         }
 
-        long currentSize = 0;
 
         try (RandomAccessFile randomAccessFile = new RandomAccessFile(newFile, "rw")) {
             byte[] buffer = new byte[BUFFER_SIZE];
             int bytesRead;
+            long currentSize = 0;
+            int currentPacket = 0;
 
             // Loop to read file data in chunks
-            while (currentSize < totalSize && (bytesRead = dataInputStream.read(buffer, 0, Math.min(buffer.length, (int)(totalSize - currentSize)))) != -1) {
+            while (currentSize < totalSize && (bytesRead = dataInputStream.read(buffer)) != -1) {
                 randomAccessFile.write(buffer, 0, bytesRead);
                 messageDigest.update(buffer, 0, bytesRead); // Update the hash
                 currentSize += bytesRead;
 
-                // Optionally log progress
-                if (currentSize % 10000 == 0) {
+                // log progress
+                if (++currentPacket % 500 == 0) {
                     double progress = (double) currentSize / totalSize * 100;
                     System.out.printf("Received: %.2f%%%n", progress);
                 }
@@ -199,6 +178,10 @@ public class FileManagerServer {
         }
 
         write("Ready");
+        
+        if(!read().contains("Ready"))
+        	return false;
+        
         long totalSize = file.length();
         dataOutputStream.writeLong(totalSize);
 
@@ -316,53 +299,4 @@ public class FileManagerServer {
             return false; // File does not exist
         }
     }
-    
-    /**
-     * Searches for the presence of a file by name in collaboration files (.txt).
-     * The search will go through all `.txt` files in the server directory to check if 
-     * the given file name is listed in any of them.
-     * 
-     * @param fileName the name of the file to search for
-     * @return the name of the file containing the file entry if found, or an empty string if not found
-     */
-    public String searchInCollaboration(String fileName) {
-        File folder = new File(AppConst.PATH_SERVER);
-
-        // Get all .txt files in the folder
-        File[] textFiles = folder.listFiles((dir, name) -> name.toLowerCase().endsWith(".txt"));
-        System.out.println("Text files is null? " + (textFiles == null));
-        
-        if (textFiles != null) {
-            System.out.println("Text files size: " + textFiles.length);
-            for (File textFile : textFiles) {
-                // Read each .txt file line by line
-                System.out.println("Checking text file: " + textFile);
-                
-                try (BufferedReader reader = new BufferedReader(new FileReader(textFile))) {
-                    String line;
-                    while ((line = reader.readLine()) != null) {
-                        if (line.trim().equals(fileName)) {
-                            String whoHaveFile = textFile.getName();
-                            
-                            if (whoHaveFile.endsWith(".txt")) {
-                                whoHaveFile = whoHaveFile.substring(0, whoHaveFile.lastIndexOf("."));
-                            }
-                            write("File Exists.");
-                            System.out.println("File found in: " + whoHaveFile);
-                            return whoHaveFile;
-                        }
-                    }
-                } catch (IOException e) {
-                    System.err.println("Error reading file: " + textFile.getName());
-                    // Handle or log the exception appropriately
-                }
-            }
-        }
-
-        // If the file name was not found in any .txt file
-        write("File Doesn't Exist.");
-        System.out.println("File Doesn't Exist.");
-        return "";
-    }
-
 }

@@ -1,11 +1,10 @@
-module Server_interface {
-	requires javafx.controls;
-	requires javafx.fxml;
-	requires org.json;
+module Server {
 	requires javafx.graphics;
-	requires javafx.base;
-    exports spicy;  // If you want other modules to use spicy
-	requires com.google.gson;
+	requires javafx.fxml;
+	requires javafx.controls;
+	requires java.sql;
 	requires unirest.java;
-	opens application to javafx.graphics, javafx.fxml;
+
+	opens application to javafx.graphics,javafx.controls,javafx.fxml;
+	opens spicy to javafx.graphics,javafx.controls,javafx.fxml;
 }

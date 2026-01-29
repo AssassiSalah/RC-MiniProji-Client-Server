@@ -1,3 +1,0 @@
-CREATE,file1.txt,true
-DELETE,file2.txt,false
-MODIFY,file3.txt,true
